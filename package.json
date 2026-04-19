@@ -1,0 +1,19 @@
+{
+  "name": "camerafi-rtmp-bridge",
+  "version": "1.0.0",
+  "description": "WebSocket → RTMP bridge para CameraFi Web. Recibe stream del browser y lo envía a Restream/YouTube/Facebook via FFmpeg.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "keywords": ["streaming", "rtmp", "webrtc", "ffmpeg", "restream"],
+  "author": "Pipo",
+  "license": "MIT"
+}
