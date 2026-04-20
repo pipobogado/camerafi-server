@@ -124,6 +124,22 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
 #go-live-btn.live { background: #1a1a1a; color: #e53e3e; border: 2px solid #e53e3e; }
 #go-live-btn:active { transform: scale(0.97); }
 #cam-btn { width: 44px; height: 44px; border-radius: 10px; border: 1px solid #2a2a2a; background: #1a1a1a; color: #888; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#replay-btn { width: 44px; height: 44px; border-radius: 10px; border: 1px solid #2a3a2a; background: #0f1f0f; color: #4a8a4a; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; position: relative; }
+#replay-btn.ready { border-color: #2a5a2a; color: #22c55e; }
+#replay-btn.playing { background: #0f2a0f; border-color: #22c55e; color: #22c55e; animation: pulse 1s ease-in-out infinite; }
+#replay-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+#replay-btn .buf-ring { position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; }
+#replay-btn .buf-ring circle { fill: none; stroke: #333; stroke-width: 2; }
+#replay-btn .buf-ring .prog { stroke: #22c55e; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 35; stroke-dashoffset: 35; transition: stroke-dashoffset 0.5s linear; transform: rotate(-90deg); transform-origin: 50% 50%; }
+/* Replay overlay */
+#replay-overlay { display: none; position: absolute; inset: 0; z-index: 15; background: #000; }
+#replay-video { width: 100%; height: 100%; object-fit: cover; }
+#replay-hud { position: absolute; top: 0; left: 0; right: 0; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); z-index: 16; }
+#replay-label { font-size: 11px; font-weight: 700; color: #22c55e; letter-spacing: 0.1em; background: rgba(0,30,0,0.6); padding: 4px 10px; border-radius: 6px; border: 1px solid #22c55e44; }
+#replay-counter { font-size: 12px; font-variant-numeric: tabular-nums; color: #fff; font-weight: 500; }
+#replay-close { font-size: 18px; color: rgba(255,255,255,0.7); background: none; border: none; cursor: pointer; padding: 2px 6px; }
+#replay-progress { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,0.15); z-index: 16; }
+#replay-progress-fill { height: 100%; background: #22c55e; width: 0%; transition: width 0.1s linear; }
 .ls-section { border-bottom: 1px solid #1e1e1e; padding: 8px 0; }
 .ls-sh { padding: 6px 12px 4px; font-size: 9px; font-weight: 600; letter-spacing: 0.1em; color: #444; text-transform: uppercase; }
 .ls-cr { display: flex; align-items: center; gap: 8px; padding: 5px 12px; }
@@ -157,6 +173,16 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
       <div class="zoom-dot" data-zoom="1.5" onclick="setZoom(1.5)"></div>
       <div class="zoom-dot" data-zoom="2.0" onclick="setZoom(2.0)"></div>
       <div class="zoom-dot" data-zoom="3.0" onclick="setZoom(3.0)"></div>
+    </div>
+    <!-- REPLAY OVERLAY -->
+    <div id="replay-overlay">
+      <video id="replay-video" playsinline muted></video>
+      <div id="replay-hud">
+        <span id="replay-label">⟳ REPLAY</span>
+        <span id="replay-counter">10s</span>
+        <button id="replay-close" onclick="stopReplay()">✕</button>
+      </div>
+      <div id="replay-progress"><div id="replay-progress-fill"></div></div>
     </div>
   </div>
 
@@ -278,6 +304,10 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
 <div id="bottom-bar">
   <button id="cam-btn" onclick="toggleCam()">⏻</button>
   <button id="go-live-btn" onclick="toggleLive()">IR EN VIVO</button>
+  <button id="replay-btn" onclick="triggerReplay()" disabled title="Replay 10s">
+    ⟳
+    <svg class="buf-ring" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5"/><circle class="prog" id="buf-prog" cx="7" cy="7" r="5"/></svg>
+  </button>
 </div>
 
 <script>
@@ -399,8 +429,15 @@ function goLive(){
   const resolution=resText==='2K'?'2560x1440':resText==='720p'?'1280x720':'1920x1080';
   ws.send(JSON.stringify({type:'config',rtmpUrl,streamKey:rtmpKey,bitrate:Math.round(parseFloat(bitrateVal)*1000)+'k',resolution}));
   const mimeType=getSupportedMime();
+  replayMime = mimeType;
+  resetReplayBuffer();
   mediaRecorder=new MediaRecorder(camStream,{mimeType,videoBitsPerSecond:parseFloat(bitrateVal)*1000000});
-  mediaRecorder.ondataavailable=(e)=>{if(e.data&&e.data.size>0&&ws&&ws.readyState===WebSocket.OPEN)ws.send(e.data);};
+  mediaRecorder.ondataavailable=(e)=>{
+    if(e.data&&e.data.size>0){
+      if(ws&&ws.readyState===WebSocket.OPEN) ws.send(e.data);
+      onReplayChunk(e.data);
+    }
+  };
   mediaRecorder.start(250);isLive=true;liveSecs=0;
   document.getElementById('live-badge').classList.add('active');
   ['go-live-btn','ls-live-btn'].forEach(id=>{const b=document.getElementById(id);b.textContent='⏹ DETENER';b.classList.add('live');});
@@ -411,7 +448,9 @@ function stopLive(){
   if(ws&&serverConnected)ws.send(JSON.stringify({type:'stop'}));
   isLive=false;clearInterval(timerInt);document.getElementById('live-badge').classList.remove('active');
   ['go-live-btn','ls-live-btn'].forEach(id=>{const b=document.getElementById(id);b.textContent='IR EN VIVO';b.classList.remove('live');});
-  document.getElementById('timer').textContent='00:00:00';document.getElementById('ls-timer').textContent='00:00:00';setStatus('ok','Cámara lista');
+  document.getElementById('timer').textContent='00:00:00';document.getElementById('ls-timer').textContent='00:00:00';
+  resetReplayBuffer();
+  setStatus('ok','Cámara lista');
 }
 function getSupportedMime(){return['video/webm;codecs=h264,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>MediaRecorder.isTypeSupported(t))||'video/webm';}
 function setRes(el,res){document.querySelectorAll('.res-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.getElementById('res-badge').textContent=res==='2560x1440'?'2K':res==='1920x1080'?'1080p':'720p';if(camStream)initCam();autoSave();}
@@ -471,6 +510,107 @@ function importJSON(input){const file=input.files[0];if(!file)return;const reade
 function clearSettings(){if(!confirm('¿Borrar todos los ajustes guardados?'))return;localStorage.removeItem('camerafi_settings');showSaveMsg('✓ Ajustes borrados',false);}
 function showSaveMsg(text,isError){const el=document.getElementById('save-msg');el.textContent=text;el.className=isError?'error':'';el.style.display='block';setTimeout(()=>{el.style.display='none';},2500);}
 function loadSavedSettings(){try{const raw=localStorage.getItem('camerafi_settings');if(raw)applySettings(JSON.parse(raw));}catch(e){}}
+
+// ── REPLAY BUFFER (10s circular) ──
+const REPLAY_SECS = 10;
+const CHUNK_MS = 250;
+const MAX_CHUNKS = (REPLAY_SECS * 1000) / CHUNK_MS; // 40 chunks
+let replayChunks = [];
+let replayMime = 'video/webm';
+let isReplaying = false;
+let replayProgressInt = null;
+let bufferFull = false;
+
+function onReplayChunk(blob) {
+  replayChunks.push(blob);
+  if (replayChunks.length > MAX_CHUNKS) replayChunks.shift();
+  const pct = Math.min(replayChunks.length / MAX_CHUNKS, 1);
+  const dashLen = 35;
+  document.getElementById('buf-prog').style.strokeDashoffset = dashLen - (pct * dashLen);
+  if (!bufferFull && replayChunks.length >= MAX_CHUNKS) {
+    bufferFull = true;
+    const btn = document.getElementById('replay-btn');
+    btn.disabled = false;
+    btn.classList.add('ready');
+    btn.title = 'Ver últimos 10s';
+  }
+}
+
+function triggerReplay() {
+  if (isReplaying) { stopReplay(); return; }
+  if (!replayChunks.length) return;
+  isReplaying = true;
+  const btn = document.getElementById('replay-btn');
+  btn.classList.remove('ready');
+  btn.classList.add('playing');
+
+  // Build blob from last 10s chunks
+  const blob = new Blob([...replayChunks], { type: replayMime });
+
+  // 1) Save to device instantly (auto-download)
+  const dlUrl = URL.createObjectURL(blob);
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const a = document.createElement('a');
+  a.href = dlUrl;
+  a.download = `replay-${ts}.webm`;
+  a.click();
+
+  // 2) Show replay on screen simultaneously
+  const playUrl = URL.createObjectURL(blob);
+  const rv = document.getElementById('replay-video');
+  rv.src = playUrl;
+
+  document.getElementById('replay-overlay').style.display = 'block';
+  document.getElementById('replay-progress-fill').style.width = '0%';
+
+  rv.onloadedmetadata = () => {
+    const dur = rv.duration || REPLAY_SECS;
+    rv.currentTime = Math.max(0, dur - REPLAY_SECS);
+    rv.play();
+    let elapsed = 0;
+    const total = Math.min(dur, REPLAY_SECS);
+    clearInterval(replayProgressInt);
+    replayProgressInt = setInterval(() => {
+      elapsed += 0.1;
+      const pct = Math.min((elapsed / total) * 100, 100);
+      document.getElementById('replay-progress-fill').style.width = pct + '%';
+      const remaining = Math.max(0, Math.ceil(total - elapsed));
+      document.getElementById('replay-counter').textContent = remaining + 's';
+      if (elapsed >= total) stopReplay();
+    }, 100);
+  };
+
+  rv.onended = () => stopReplay();
+  rv.onerror = () => stopReplay();
+
+  // Cleanup download URL after a moment
+  setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
+  setTimeout(() => { if (isReplaying) stopReplay(); }, (REPLAY_SECS + 3) * 1000);
+}
+
+function stopReplay() {
+  isReplaying = false;
+  clearInterval(replayProgressInt);
+  const rv = document.getElementById('replay-video');
+  rv.pause();
+  if (rv.src) { URL.revokeObjectURL(rv.src); rv.src = ''; }
+  document.getElementById('replay-overlay').style.display = 'none';
+  document.getElementById('replay-progress-fill').style.width = '0%';
+  document.getElementById('replay-counter').textContent = REPLAY_SECS + 's';
+  const btn = document.getElementById('replay-btn');
+  btn.classList.remove('playing');
+  if (bufferFull) btn.classList.add('ready');
+}
+
+function resetReplayBuffer() {
+  replayChunks = [];
+  bufferFull = false;
+  document.getElementById('buf-prog').style.strokeDashoffset = '35';
+  const btn = document.getElementById('replay-btn');
+  btn.disabled = true;
+  btn.classList.remove('ready', 'playing');
+  stopReplay();
+}
 
 loadSavedSettings();
 initCam();
