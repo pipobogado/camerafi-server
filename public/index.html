@@ -297,6 +297,10 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
       <button class="ls-btn" id="ls-settings-btn" onclick="toggleLsControls()">⚙ Ajustes</button>
       <div id="ls-timer">00:00:00</div>
       <button class="ls-btn" id="ls-live-btn" onclick="toggleLive()">IR EN VIVO</button>
+      <button id="ls-replay-btn" onclick="triggerReplay()" disabled title="Replay 10s" style="width:44px;height:44px;border-radius:10px;border:1px solid #2a3a2a;background:#0f1f0f;color:#4a8a4a;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;position:relative;pointer-events:all;">
+        ⟳
+        <svg style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="none" stroke="#333" stroke-width="2"/><circle id="ls-buf-prog" cx="7" cy="7" r="5" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-dasharray="35" stroke-dashoffset="35" style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset 0.5s linear;"/></svg>
+      </button>
     </div>
   </div>
 </div>
@@ -407,17 +411,38 @@ function setupAudio(){
   }catch(e){}
 }
 function toggleServerConnection(){if(serverConnected){disconnectServer();return;}connectServer();}
+
+let wsKeepaliveInt = null;
+
 function connectServer(){
   const url=document.getElementById('server-url').value.trim();
   if(!url){setSrvStatus('err','Ingresa la URL');return;}
   setSrvStatus('','Conectando...');
   ws=new WebSocket(url);
-  ws.onopen=()=>{serverConnected=true;setSrvStatus('ok','Servidor conectado ✓');document.getElementById('connect-btn').textContent='Desconectar';document.getElementById('connect-btn').classList.add('connected');};
+  ws.binaryType='arraybuffer';
+  ws.onopen=()=>{
+    serverConnected=true;
+    setSrvStatus('ok','Servidor conectado ✓');
+    document.getElementById('connect-btn').textContent='Desconectar';
+    document.getElementById('connect-btn').classList.add('connected');
+    // Client-side keepalive: send ping JSON every 20s so server doesn't drop us
+    clearInterval(wsKeepaliveInt);
+    wsKeepaliveInt=setInterval(()=>{
+      if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'ping'}));
+    },20000);
+  };
   ws.onmessage=(e)=>{try{const m=JSON.parse(e.data);if(m.type==='started')setStatus('live','● En vivo → Restream');if(m.type==='stopped')setStatus('ok','Cámara lista');if(m.type==='error')setStatus('err','⚠ '+m.message);}catch(e){}};
   ws.onerror=()=>setSrvStatus('err','Error de conexión');
-  ws.onclose=()=>{serverConnected=false;setSrvStatus('','Desconectado');document.getElementById('connect-btn').textContent='Conectar servidor';document.getElementById('connect-btn').classList.remove('connected');if(isLive)stopLive();};
+  ws.onclose=()=>{
+    serverConnected=false;
+    clearInterval(wsKeepaliveInt);
+    setSrvStatus('','Desconectado');
+    document.getElementById('connect-btn').textContent='Conectar servidor';
+    document.getElementById('connect-btn').classList.remove('connected');
+    if(isLive)stopLive();
+  };
 }
-function disconnectServer(){if(ws){ws.close();ws=null;}serverConnected=false;}
+function disconnectServer(){clearInterval(wsKeepaliveInt);if(ws){ws.close();ws=null;}serverConnected=false;}
 function toggleLive(){if(!camStream){initCam().then(()=>setTimeout(goLive,600));return;}if(!isLive)goLive();else stopLive();}
 function goLive(){
   const rtmpUrl=document.getElementById('rtmp-url').value.trim();
@@ -515,77 +540,93 @@ function loadSavedSettings(){try{const raw=localStorage.getItem('camerafi_settin
 const REPLAY_SECS = 10;
 const CHUNK_MS = 250;
 const MAX_CHUNKS = (REPLAY_SECS * 1000) / CHUNK_MS; // 40 chunks
-let replayChunks = [];
+let replayChunks = [];   // rolling window of data chunks
+let replayHeaderChunk = null; // CRITICAL: first chunk has the WebM container header
 let replayMime = 'video/webm';
 let isReplaying = false;
 let replayProgressInt = null;
+let replayPlayUrl = null;
 let bufferFull = false;
 
 function onReplayChunk(blob) {
+  // The very first chunk contains the WebM header — must always prepend it
+  if (!replayHeaderChunk) {
+    replayHeaderChunk = blob;
+    return; // don't add header to rolling buffer
+  }
   replayChunks.push(blob);
   if (replayChunks.length > MAX_CHUNKS) replayChunks.shift();
   const pct = Math.min(replayChunks.length / MAX_CHUNKS, 1);
   const dashLen = 35;
-  document.getElementById('buf-prog').style.strokeDashoffset = dashLen - (pct * dashLen);
+  const offset = dashLen - (pct * dashLen);
+  ['buf-prog','ls-buf-prog'].forEach(id=>{
+    const prog = document.getElementById(id);
+    if(prog) prog.style.strokeDashoffset = offset;
+  });
   if (!bufferFull && replayChunks.length >= MAX_CHUNKS) {
     bufferFull = true;
-    const btn = document.getElementById('replay-btn');
-    btn.disabled = false;
-    btn.classList.add('ready');
-    btn.title = 'Ver últimos 10s';
+    ['replay-btn','ls-replay-btn'].forEach(id=>{
+      const btn = document.getElementById(id);
+      if(!btn) return;
+      btn.disabled = false;
+      btn.classList.add('ready');
+      btn.title = 'Ver últimos 10s';
+    });
   }
 }
 
 function triggerReplay() {
   if (isReplaying) { stopReplay(); return; }
-  if (!replayChunks.length) return;
+  if (!replayChunks.length || !replayHeaderChunk) return;
   isReplaying = true;
-  const btn = document.getElementById('replay-btn');
-  btn.classList.remove('ready');
-  btn.classList.add('playing');
+  ['replay-btn','ls-replay-btn'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(!btn) return;
+    btn.classList.remove('ready');
+    btn.classList.add('playing');
+  });
 
-  // Build blob from last 10s chunks
-  const blob = new Blob([...replayChunks], { type: replayMime });
+  // Always prepend the header chunk so the blob is a valid WebM file
+  const blob = new Blob([replayHeaderChunk, ...replayChunks], { type: replayMime });
 
-  // 1) Save to device instantly (auto-download)
+  // 1) Save to device instantly
   const dlUrl = URL.createObjectURL(blob);
   const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
   const a = document.createElement('a');
   a.href = dlUrl;
   a.download = `replay-${ts}.webm`;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(dlUrl), 8000);
 
-  // 2) Show replay on screen simultaneously
-  const playUrl = URL.createObjectURL(blob);
+  // 2) Show replay on screen simultaneously (separate URL from same blob)
+  if (replayPlayUrl) URL.revokeObjectURL(replayPlayUrl);
+  replayPlayUrl = URL.createObjectURL(blob);
   const rv = document.getElementById('replay-video');
-  rv.src = playUrl;
+  rv.src = replayPlayUrl;
 
   document.getElementById('replay-overlay').style.display = 'block';
   document.getElementById('replay-progress-fill').style.width = '0%';
+  document.getElementById('replay-counter').textContent = REPLAY_SECS + 's';
 
   rv.onloadedmetadata = () => {
-    const dur = rv.duration || REPLAY_SECS;
-    rv.currentTime = Math.max(0, dur - REPLAY_SECS);
-    rv.play();
+    rv.currentTime = 0;
+    rv.play().catch(()=>{});
     let elapsed = 0;
-    const total = Math.min(dur, REPLAY_SECS);
+    const total = REPLAY_SECS;
     clearInterval(replayProgressInt);
     replayProgressInt = setInterval(() => {
       elapsed += 0.1;
       const pct = Math.min((elapsed / total) * 100, 100);
       document.getElementById('replay-progress-fill').style.width = pct + '%';
-      const remaining = Math.max(0, Math.ceil(total - elapsed));
-      document.getElementById('replay-counter').textContent = remaining + 's';
+      document.getElementById('replay-counter').textContent = Math.max(0, Math.ceil(total - elapsed)) + 's';
       if (elapsed >= total) stopReplay();
     }, 100);
   };
 
-  rv.onended = () => stopReplay();
   rv.onerror = () => stopReplay();
-
-  // Cleanup download URL after a moment
-  setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
-  setTimeout(() => { if (isReplaying) stopReplay(); }, (REPLAY_SECS + 3) * 1000);
+  rv.onended = () => stopReplay();
 }
 
 function stopReplay() {
@@ -593,22 +634,35 @@ function stopReplay() {
   clearInterval(replayProgressInt);
   const rv = document.getElementById('replay-video');
   rv.pause();
-  if (rv.src) { URL.revokeObjectURL(rv.src); rv.src = ''; }
+  rv.removeAttribute('src');
+  rv.load();
+  if (replayPlayUrl) { URL.revokeObjectURL(replayPlayUrl); replayPlayUrl = null; }
   document.getElementById('replay-overlay').style.display = 'none';
   document.getElementById('replay-progress-fill').style.width = '0%';
   document.getElementById('replay-counter').textContent = REPLAY_SECS + 's';
-  const btn = document.getElementById('replay-btn');
-  btn.classList.remove('playing');
-  if (bufferFull) btn.classList.add('ready');
+  ['replay-btn','ls-replay-btn'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(!btn) return;
+    btn.classList.remove('playing');
+    if(bufferFull) btn.classList.add('ready');
+  });
 }
 
 function resetReplayBuffer() {
   replayChunks = [];
+  replayHeaderChunk = null;
   bufferFull = false;
-  document.getElementById('buf-prog').style.strokeDashoffset = '35';
-  const btn = document.getElementById('replay-btn');
-  btn.disabled = true;
-  btn.classList.remove('ready', 'playing');
+  if (replayPlayUrl) { URL.revokeObjectURL(replayPlayUrl); replayPlayUrl = null; }
+  const prog = document.getElementById('buf-prog');
+  if (prog) prog.style.strokeDashoffset = '35';
+  const lsProg = document.getElementById('ls-buf-prog');
+  if (lsProg) lsProg.style.strokeDashoffset = '35';
+  ['replay-btn','ls-replay-btn'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(!btn) return;
+    btn.disabled = true;
+    btn.classList.remove('ready', 'playing');
+  });
   stopReplay();
 }
 

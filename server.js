@@ -50,6 +50,14 @@ wss.on('connection', (ws, req) => {
       try {
         const msg = JSON.parse(data.toString());
 
+        // Keepalive ping from client — just respond and do nothing
+        if (msg.type === 'ping') {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'pong' }));
+          }
+          return;
+        }
+
         if (msg.type === 'config') {
           rtmpUrl = msg.rtmpUrl;
           streamKey = msg.streamKey;
@@ -156,16 +164,17 @@ wss.on('connection', (ws, req) => {
   // Ping/pong para mantener conexión viva
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
+  ws.on('message', () => { ws.isAlive = true; }); // cualquier mensaje mantiene viva la conexión
 });
 
-// Heartbeat cada 30s para detectar conexiones muertas
+// Heartbeat cada 60s para detectar conexiones realmente muertas
 const heartbeat = setInterval(() => {
   wss.clients.forEach((ws) => {
     if (!ws.isAlive) { ws.terminate(); return; }
     ws.isAlive = false;
     ws.ping();
   });
-}, 30000);
+}, 60000);
 
 wss.on('close', () => clearInterval(heartbeat));
 
