@@ -9,6 +9,14 @@ const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 
+// Prevent unhandled errors from crashing the server
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT]', err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+});
+
 // HTTP server
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -73,18 +81,20 @@ function convertWebmToMp4(webmBuffer, callback) {
 
     const ff = spawn('ffmpeg', [
       '-y',
+      '-err_detect', 'ignore_err',   // tolerate incomplete/truncated WebM
       '-i', tmpIn,
       '-c:v', 'libx264',
-      '-preset', 'ultrafast',   // fastest possible for instant replay
+      '-preset', 'ultrafast',
       '-crf', '23',
       '-c:a', 'aac',
       '-b:a', '128k',
-      '-movflags', '+faststart', // MP4 optimized for streaming/download
+      '-movflags', '+faststart',
       tmpOut
     ]);
 
     let ffErr = '';
     ff.stderr.on('data', d => { ffErr += d.toString(); });
+    ff.stdin.on('error', () => {}); // suppress EPIPE on stdin
 
     ff.on('close', (code) => {
       // Cleanup input temp file
@@ -157,6 +167,11 @@ wss.on('connection', (ws, req) => {
             const line = d.toString();
             if (line.includes('fps') || line.includes('bitrate') || line.includes('Error'))
               console.log(`[FFMPEG] ${line.trim()}`);
+          });
+
+          // Prevent EPIPE from crashing the server if FFmpeg dies unexpectedly
+          ffmpegProcess.stdin.on('error', (err) => {
+            if (err.code !== 'EPIPE') console.error('[FFMPEG stdin]', err.message);
           });
 
           ffmpegProcess.on('close', code => {
