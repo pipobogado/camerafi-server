@@ -176,9 +176,14 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
     </div>
     <!-- REPLAY OVERLAY -->
     <div id="replay-overlay">
-      <video id="replay-video" playsinline muted></video>
+      <video id="replay-video" playsinline></video>
       <div id="replay-hud">
         <span id="replay-label">⟳ REPLAY</span>
+        <div style="display:flex;gap:5px;align-items:center;">
+          <button class="rspd-btn" data-s="0.5" onclick="setReplaySpeed(0.5)" style="padding:3px 7px;border-radius:5px;border:none;background:rgba(255,255,255,0.1);color:#fff;font-size:10px;font-weight:600;cursor:pointer;">x0.5</button>
+          <button class="rspd-btn" data-s="1" onclick="setReplaySpeed(1)" style="padding:3px 7px;border-radius:5px;border:none;background:rgba(34,197,94,0.3);color:#22c55e;font-size:10px;font-weight:600;cursor:pointer;">x1</button>
+          <button class="rspd-btn" data-s="2" onclick="setReplaySpeed(2)" style="padding:3px 7px;border-radius:5px;border:none;background:rgba(255,255,255,0.1);color:#fff;font-size:10px;font-weight:600;cursor:pointer;">x2</button>
+        </div>
         <span id="replay-counter">10s</span>
         <button id="replay-close" onclick="stopReplay()">✕</button>
       </div>
@@ -197,8 +202,8 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
     </div>
     <div class="section">
       <div class="section-header">Cámara</div>
-      <div class="ctrl-row"><span class="ctrl-label">ISO</span><input type="range" id="iso" min="50" max="3200" step="50" value="100" oninput="updateVal('iso-val',this.value,'ISO ')"><span class="ctrl-val" id="iso-val">ISO 100</span></div>
-      <div class="ctrl-row"><span class="ctrl-label">Exp</span><input type="range" id="exp" min="-3" max="3" step="0.1" value="0" oninput="document.getElementById('exp-val').textContent='EV '+parseFloat(this.value).toFixed(1);autoSave()"><span class="ctrl-val" id="exp-val">EV 0.0</span></div>
+      <div class="ctrl-row"><span class="ctrl-label">ISO <span id="cam-iso-support" style="font-size:9px;color:#555;"></span></span><input type="range" id="iso" min="50" max="3200" step="50" value="100" oninput="updateVal('iso-val',this.value,'ISO ')"><span class="ctrl-val" id="iso-val">ISO 100</span></div>
+      <div class="ctrl-row"><span class="ctrl-label">Exp <span id="cam-exp-support" style="font-size:9px;color:#555;"></span></span><input type="range" id="exp" min="-3" max="3" step="0.1" value="0" oninput="document.getElementById('exp-val').textContent='EV '+parseFloat(this.value).toFixed(1);applyExp(parseFloat(this.value));autoSave()"><span class="ctrl-val" id="exp-val">EV 0.0</span></div>
       <div class="ctrl-row"><span class="ctrl-label">Zoom</span><input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1" oninput="updateZoomSlider(this.value)"><span class="ctrl-val" id="zoom-val">1.0x</span></div>
     </div>
     <div class="section">
@@ -211,7 +216,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
         <div class="wb-btn" onclick="setWB(this)">Fluoresc.</div>
         <div class="wb-btn" onclick="setWB(this)">Flash</div>
       </div>
-      <div class="ctrl-row"><span class="ctrl-label">Temp</span><input type="range" id="wb-temp" min="2500" max="8000" step="100" value="5600" oninput="updateVal('wb-val',this.value,'','K')"><span class="ctrl-val" id="wb-val">5600K</span></div>
+      <div class="ctrl-row"><span class="ctrl-label">Temp <span id="cam-wb-support" style="font-size:9px;color:#555;"></span></span><input type="range" id="wb-temp" min="2500" max="8000" step="100" value="5600" oninput="updateVal('wb-val',this.value,'','K')"><span class="ctrl-val" id="wb-val">5600K</span></div>
     </div>
     <div class="section">
       <div class="section-header">Audio</div>
@@ -269,7 +274,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
     <div id="ls-controls">
       <div class="ls-section">
         <div class="ls-sh">Cámara</div>
-        <div class="ls-cr"><span class="ls-cl">ISO</span><input type="range" id="ls-iso" min="50" max="3200" step="50" value="100" oninput="mirrorSlider('iso','iso-val',this.value,'ISO ')"><span class="ls-cv" id="ls-iso-v">100</span></div>
+        <div class="ls-cr"><span class="ls-cl">ISO</span><input type="range" id="ls-iso" min="50" max="3200" step="50" value="100" oninput="mirrorSlider('iso','iso-val',this.value,'ISO ');applyISO(parseFloat(this.value));"><span class="ls-cv" id="ls-iso-v">100</span></div>
         <div class="ls-cr"><span class="ls-cl">Exp</span><input type="range" id="ls-exp" min="-3" max="3" step="0.1" value="0" oninput="mirrorExp(this.value)"><span class="ls-cv" id="ls-exp-v">0.0</span></div>
         <div class="ls-cr"><span class="ls-cl">Zoom</span><input type="range" id="ls-zoom" min="1" max="5" step="0.1" value="1" oninput="mirrorZoom(this.value)"><span class="ls-cv" id="ls-zoom-v">1.0x</span></div>
       </div>
@@ -368,6 +373,7 @@ function mirrorExp(v){
   document.getElementById('exp').value=v;
   document.getElementById('exp-val').textContent='EV '+parseFloat(v).toFixed(1);
   document.getElementById('ls-exp-v').textContent=parseFloat(v).toFixed(1);
+  applyExp(parseFloat(v));
   autoSave();
 }
 function mirrorZoom(v){
@@ -385,14 +391,174 @@ function mirrorBitrate(v){
 window.addEventListener('resize',checkOrientation);
 window.addEventListener('orientationchange',()=>setTimeout(checkOrientation,200));
 
+// ── IMAGE CAPTURE API ──
+let imageCapture = null;
+let camCapabilities = {};
+
 async function initCam(){
   const resText=document.querySelector('.res-btn.active')?.textContent||'1080p';
   const dims=resText==='2K'?[2560,1440]:resText==='720p'?[1280,720]:[1920,1080];
   try{
     if(camStream)camStream.getTracks().forEach(t=>t.stop());
-    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:dims[0]},height:{ideal:dims[1]},frameRate:{ideal:30}},audio:{echoCancellation:true,noiseSuppression:true,sampleRate:44100}});
-    video.srcObject=camStream;document.getElementById('cam-btn').textContent='🔄';setupAudio();setStatus('ok','Cámara lista');
+    camStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'environment',width:{ideal:dims[0]},height:{ideal:dims[1]},frameRate:{ideal:30}},
+      audio:{echoCancellation:true,noiseSuppression:true,sampleRate:44100}
+    });
+    video.srcObject=camStream;
+    document.getElementById('cam-btn').textContent='🔄';
+    setupAudio();
+    setStatus('ok','Cámara lista');
+    // Init ImageCapture and probe capabilities
+    await initImageCapture();
   }catch(e){setStatus('err','Sin permisos de cámara');}
+}
+
+async function initImageCapture(){
+  try{
+    const track = camStream.getVideoTracks()[0];
+    if(!track) return;
+    imageCapture = new ImageCapture(track);
+    camCapabilities = track.getCapabilities ? track.getCapabilities() : {};
+    console.log('[CAM] Capabilities:', JSON.stringify(camCapabilities));
+    updateCapabilityUI();
+    // Apply saved values after camera ready
+    applyAllCamConstraints();
+  }catch(e){
+    console.warn('[CAM] ImageCapture no disponible:', e.message);
+    imageCapture = null;
+    camCapabilities = {};
+    updateCapabilityUI();
+  }
+}
+
+function updateCapabilityUI(){
+  const caps = camCapabilities;
+  // ISO
+  const isoSupported = caps.iso && caps.iso.min !== undefined;
+  const isoEl = document.getElementById('iso');
+  const isoLabel = document.getElementById('cam-iso-support');
+  if(isoEl){
+    if(isoSupported){
+      isoEl.min = caps.iso.min; isoEl.max = caps.iso.max;
+      isoEl.step = Math.max(1, Math.round((caps.iso.max - caps.iso.min) / 50));
+      isoEl.disabled = false;
+      if(isoLabel) isoLabel.textContent = '✓';
+    } else {
+      isoEl.disabled = false; // keep slider but warn
+      if(isoLabel) isoLabel.textContent = '~';
+    }
+  }
+  // Exposure
+  const expSupported = caps.exposureCompensation && caps.exposureCompensation.min !== undefined;
+  const expEl = document.getElementById('exp');
+  const expLabel = document.getElementById('cam-exp-support');
+  if(expEl){
+    if(expSupported){
+      expEl.min = caps.exposureCompensation.min;
+      expEl.max = caps.exposureCompensation.max;
+      expEl.step = caps.exposureCompensation.step || 0.1;
+      if(expLabel) expLabel.textContent = '✓';
+    } else {
+      if(expLabel) expLabel.textContent = '~';
+    }
+  }
+  // WB temp
+  const wbSupported = caps.colorTemperature && caps.colorTemperature.min !== undefined;
+  const wbEl = document.getElementById('wb-temp');
+  const wbLabel = document.getElementById('cam-wb-support');
+  if(wbEl){
+    if(wbSupported){
+      wbEl.min = caps.colorTemperature.min; wbEl.max = caps.colorTemperature.max;
+      wbEl.step = caps.colorTemperature.step || 100;
+      if(wbLabel) wbLabel.textContent = '✓';
+    } else {
+      if(wbLabel) wbLabel.textContent = '~';
+    }
+  }
+  // Zoom
+  const zoomSupported = caps.zoom && caps.zoom.min !== undefined;
+  const zoomEl = document.getElementById('zoom-slider');
+  if(zoomEl && zoomSupported){
+    zoomEl.min = caps.zoom.min; zoomEl.max = caps.zoom.max;
+    zoomEl.step = caps.zoom.step || 0.1;
+  }
+}
+
+async function applyCamConstraint(constraints){
+  if(!camStream) return;
+  const track = camStream.getVideoTracks()[0];
+  if(!track) return;
+  try{
+    await track.applyConstraints({ advanced: [constraints] });
+  }catch(e){
+    console.warn('[CAM] applyConstraints failed:', e.message, constraints);
+  }
+}
+
+function applyAllCamConstraints(){
+  const iso = parseFloat(document.getElementById('iso')?.value || 100);
+  const exp = parseFloat(document.getElementById('exp')?.value || 0);
+  const wb = document.getElementById('wb-temp')?.value;
+  const wbMode = document.querySelector('.wb-btn.active')?.textContent || 'Auto';
+  applyISO(iso);
+  applyExp(exp);
+  applyWBMode(wbMode, wb ? parseInt(wb) : null);
+}
+
+async function applyISO(val){
+  const caps = camCapabilities;
+  if(caps.iso){
+    const clamped = Math.min(caps.iso.max, Math.max(caps.iso.min, val));
+    await applyCamConstraint({ iso: clamped, exposureMode: 'manual' });
+  }
+  // Fallback: try exposureMode auto if manual not supported
+}
+
+async function applyExp(val){
+  const caps = camCapabilities;
+  if(caps.exposureCompensation){
+    const clamped = Math.min(caps.exposureCompensation.max,
+      Math.max(caps.exposureCompensation.min, parseFloat(val)));
+    await applyCamConstraint({ exposureCompensation: clamped });
+  }
+}
+
+async function applyWBMode(modeName, tempVal){
+  const caps = camCapabilities;
+  // Map UI label → API whiteBalanceMode
+  const modeMap = {
+    'Auto': 'continuous',
+    'Luz día': 'manual',
+    'Nublado': 'manual',
+    'Tungsteno': 'manual',
+    'Fluoresc.': 'manual',
+    'Flash': 'manual'
+  };
+  // Approximate color temps for presets
+  const tempMap = {
+    'Auto': null,
+    'Luz día': 5600,
+    'Nublado': 6500,
+    'Tungsteno': 3200,
+    'Fluoresc.': 4000,
+    'Flash': 5500
+  };
+  const apiMode = modeMap[modeName] || 'continuous';
+  const presetTemp = tempMap[modeName] ?? tempVal;
+
+  const constraint = {};
+  if(caps.whiteBalanceMode && caps.whiteBalanceMode.includes(apiMode)){
+    constraint.whiteBalanceMode = apiMode;
+  }
+  if(apiMode === 'manual' && caps.colorTemperature && presetTemp){
+    const clamped = Math.min(caps.colorTemperature.max,
+      Math.max(caps.colorTemperature.min, presetTemp));
+    constraint.colorTemperature = clamped;
+    // Sync slider to preset temp
+    const wbEl = document.getElementById('wb-temp');
+    if(wbEl){ wbEl.value = clamped; document.getElementById('wb-val').textContent = clamped + 'K'; }
+  }
+  if(Object.keys(constraint).length) await applyCamConstraint(constraint);
 }
 function toggleCam(){
   if(!camStream){initCam();return;}
@@ -479,7 +645,13 @@ function stopLive(){
 }
 function getSupportedMime(){return['video/webm;codecs=h264,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>MediaRecorder.isTypeSupported(t))||'video/webm';}
 function setRes(el,res){document.querySelectorAll('.res-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.getElementById('res-badge').textContent=res==='2560x1440'?'2K':res==='1920x1080'?'1080p':'720p';if(camStream)initCam();autoSave();}
-function setWB(el){document.querySelectorAll('.wb-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');autoSave();}
+function setWB(el){
+  document.querySelectorAll('.wb-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  const temp=document.getElementById('wb-temp')?.value;
+  applyWBMode(el.textContent, temp?parseInt(temp):null);
+  autoSave();
+}
 function setZoom(z){
   document.querySelectorAll('.zoom-dot').forEach(d=>d.classList.toggle('active',parseFloat(d.dataset.zoom)===z));
   document.getElementById('zoom-label').textContent=z.toFixed(1)+'x';document.getElementById('zoom-slider').value=z;document.getElementById('zoom-val').textContent=z.toFixed(1)+'x';
@@ -492,7 +664,12 @@ function applyZoom(z){
   if(track?.getCapabilities?.()?.zoom){const caps=track.getCapabilities();track.applyConstraints({advanced:[{zoom:Math.min(caps.zoom.max,Math.max(caps.zoom.min,z))}]});}
   else{video.style.transform=`scale(${z})`;video.style.transformOrigin='center center';}
 }
-function updateVal(id,val,prefix,suffix){document.getElementById(id).textContent=(prefix||'')+val+(suffix||'');autoSave();}
+function updateVal(id,val,prefix,suffix){
+  document.getElementById(id).textContent=(prefix||'')+val+(suffix||'');
+  if(id==='iso-val') applyISO(parseFloat(val));
+  if(id==='wb-val'){const wbMode=document.querySelector('.wb-btn.active')?.textContent||'Auto';if(wbMode!=='Auto')applyWBMode(wbMode,parseInt(val));}
+  autoSave();
+}
 function updateBitrate(v){const mbps=parseFloat(parseFloat(v).toFixed(1));document.getElementById('br-val').textContent=mbps+' Mbps';document.getElementById('bitrate-badge').textContent=mbps+' Mbps';if(isLandscape){document.getElementById('ls-br').value=v;document.getElementById('ls-br-v').textContent=mbps+'M';}autoSave();}
 function setStatus(type,text){document.getElementById('status-dot').className='status-dot'+(type?' '+type:'');document.getElementById('status-text').textContent=text;document.getElementById('ls-status-dot').className='status-dot'+(type?' '+type:'');document.getElementById('ls-status-text').textContent=text;}
 function setSrvStatus(type,text){document.getElementById('srv-dot').className='status-dot'+(type?' '+type:'');document.getElementById('srv-text').textContent=text;}
@@ -540,37 +717,40 @@ function loadSavedSettings(){try{const raw=localStorage.getItem('camerafi_settin
 const REPLAY_SECS = 10;
 const CHUNK_MS = 250;
 const MAX_CHUNKS = (REPLAY_SECS * 1000) / CHUNK_MS; // 40 chunks
-let replayChunks = [];   // rolling window of data chunks
-let replayHeaderChunk = null; // CRITICAL: first chunk has the WebM container header
+let replayChunks = [];
+let replayHeaderChunk = null;
 let replayMime = 'video/webm';
 let isReplaying = false;
 let replayProgressInt = null;
 let replayPlayUrl = null;
 let bufferFull = false;
+let replaySpeed = 1; // x0.5 / x1 / x2
+
+// Speed buttons in replay HUD — built dynamically
+function setReplaySpeed(s) {
+  replaySpeed = s;
+  const rv = document.getElementById('replay-video');
+  if (rv) rv.playbackRate = s;
+  document.querySelectorAll('.rspd-btn').forEach(b => {
+    b.style.background = parseFloat(b.dataset.s) === s ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)';
+    b.style.color = parseFloat(b.dataset.s) === s ? '#22c55e' : '#fff';
+  });
+}
 
 function onReplayChunk(blob) {
-  // The very first chunk contains the WebM header — must always prepend it
-  if (!replayHeaderChunk) {
-    replayHeaderChunk = blob;
-    return; // don't add header to rolling buffer
-  }
+  if (!replayHeaderChunk) { replayHeaderChunk = blob; return; }
   replayChunks.push(blob);
   if (replayChunks.length > MAX_CHUNKS) replayChunks.shift();
   const pct = Math.min(replayChunks.length / MAX_CHUNKS, 1);
-  const dashLen = 35;
-  const offset = dashLen - (pct * dashLen);
-  ['buf-prog','ls-buf-prog'].forEach(id=>{
-    const prog = document.getElementById(id);
-    if(prog) prog.style.strokeDashoffset = offset;
+  const offset = 35 - (pct * 35);
+  ['buf-prog','ls-buf-prog'].forEach(id => {
+    const p = document.getElementById(id); if(p) p.style.strokeDashoffset = offset;
   });
   if (!bufferFull && replayChunks.length >= MAX_CHUNKS) {
     bufferFull = true;
-    ['replay-btn','ls-replay-btn'].forEach(id=>{
-      const btn = document.getElementById(id);
-      if(!btn) return;
-      btn.disabled = false;
-      btn.classList.add('ready');
-      btn.title = 'Ver últimos 10s';
+    ['replay-btn','ls-replay-btn'].forEach(id => {
+      const b = document.getElementById(id); if(!b) return;
+      b.disabled = false; b.classList.add('ready'); b.title = 'Ver últimos 10s';
     });
   }
 }
@@ -578,53 +758,87 @@ function onReplayChunk(blob) {
 function triggerReplay() {
   if (isReplaying) { stopReplay(); return; }
   if (!replayChunks.length || !replayHeaderChunk) return;
+
   isReplaying = true;
-  ['replay-btn','ls-replay-btn'].forEach(id=>{
-    const btn=document.getElementById(id);
-    if(!btn) return;
-    btn.classList.remove('ready');
-    btn.classList.add('playing');
+  ['replay-btn','ls-replay-btn'].forEach(id => {
+    const b = document.getElementById(id); if(!b) return;
+    b.classList.remove('ready'); b.classList.add('playing');
   });
 
-  // Always prepend the header chunk so the blob is a valid WebM file
-  const blob = new Blob([replayHeaderChunk, ...replayChunks], { type: replayMime });
+  const webmBlob = new Blob([replayHeaderChunk, ...replayChunks], { type: replayMime });
 
-  // 1) Save to device instantly
-  const dlUrl = URL.createObjectURL(blob);
-  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-  const a = document.createElement('a');
-  a.href = dlUrl;
-  a.download = `replay-${ts}.webm`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(dlUrl), 8000);
+  // Show overlay immediately with loading state
+  document.getElementById('replay-overlay').style.display = 'block';
+  document.getElementById('replay-progress-fill').style.width = '0%';
+  document.getElementById('replay-counter').textContent = '⟳';
 
-  // 2) Show replay on screen simultaneously (separate URL from same blob)
+  // Get server base URL from the WS URL configured
+  const wsUrl = document.getElementById('server-url').value.trim();
+  let serverBase = '';
+  if (wsUrl) {
+    try {
+      const u = new URL(wsUrl.replace(/^ws/, 'http'));
+      serverBase = `${u.protocol}//${u.host}`;
+    } catch(e) {}
+  }
+
+  if (!serverBase) {
+    // Fallback: play WebM directly if no server configured
+    playReplayBlob(webmBlob, replayMime);
+    return;
+  }
+
+  // Send WebM to server → get MP4 back (background conversion)
+  webmBlob.arrayBuffer().then(ab => {
+    return fetch(`${serverBase}/replay-convert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'video/webm' },
+      body: ab
+    });
+  }).then(r => {
+    if (!r.ok) throw new Error('Conversion failed ' + r.status);
+    return r.blob();
+  }).then(mp4Blob => {
+    // Save MP4 to device in background
+    const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+    const dlUrl = URL.createObjectURL(mp4Blob);
+    const a = document.createElement('a');
+    a.href = dlUrl; a.download = `replay-${ts}.mp4`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(dlUrl), 10000);
+    // Play the MP4 on screen
+    playReplayBlob(mp4Blob, 'video/mp4');
+  }).catch(err => {
+    console.warn('[REPLAY] Server convert failed, playing WebM locally:', err.message);
+    // Fallback: play WebM on screen anyway
+    playReplayBlob(webmBlob, replayMime);
+  });
+}
+
+function playReplayBlob(blob, mime) {
   if (replayPlayUrl) URL.revokeObjectURL(replayPlayUrl);
   replayPlayUrl = URL.createObjectURL(blob);
   const rv = document.getElementById('replay-video');
   rv.src = replayPlayUrl;
-
-  document.getElementById('replay-overlay').style.display = 'block';
-  document.getElementById('replay-progress-fill').style.width = '0%';
-  document.getElementById('replay-counter').textContent = REPLAY_SECS + 's';
+  rv.playbackRate = replaySpeed;
 
   rv.onloadedmetadata = () => {
     rv.currentTime = 0;
-    rv.play().catch(()=>{});
+    rv.playbackRate = replaySpeed;
+    rv.play().catch(() => {});
+
     let elapsed = 0;
-    const total = REPLAY_SECS;
+    const total = REPLAY_SECS / replaySpeed;
     clearInterval(replayProgressInt);
     replayProgressInt = setInterval(() => {
       elapsed += 0.1;
       const pct = Math.min((elapsed / total) * 100, 100);
       document.getElementById('replay-progress-fill').style.width = pct + '%';
-      document.getElementById('replay-counter').textContent = Math.max(0, Math.ceil(total - elapsed)) + 's';
+      const remSec = Math.max(0, Math.ceil((total - elapsed) * replaySpeed));
+      document.getElementById('replay-counter').textContent = remSec + 's';
       if (elapsed >= total) stopReplay();
     }, 100);
   };
-
   rv.onerror = () => stopReplay();
   rv.onended = () => stopReplay();
 }
@@ -633,35 +847,27 @@ function stopReplay() {
   isReplaying = false;
   clearInterval(replayProgressInt);
   const rv = document.getElementById('replay-video');
-  rv.pause();
-  rv.removeAttribute('src');
-  rv.load();
+  if (rv) { rv.pause(); rv.removeAttribute('src'); rv.load(); }
   if (replayPlayUrl) { URL.revokeObjectURL(replayPlayUrl); replayPlayUrl = null; }
   document.getElementById('replay-overlay').style.display = 'none';
   document.getElementById('replay-progress-fill').style.width = '0%';
   document.getElementById('replay-counter').textContent = REPLAY_SECS + 's';
-  ['replay-btn','ls-replay-btn'].forEach(id=>{
-    const btn=document.getElementById(id);
-    if(!btn) return;
-    btn.classList.remove('playing');
-    if(bufferFull) btn.classList.add('ready');
+  ['replay-btn','ls-replay-btn'].forEach(id => {
+    const b = document.getElementById(id); if(!b) return;
+    b.classList.remove('playing');
+    if (bufferFull) b.classList.add('ready');
   });
 }
 
 function resetReplayBuffer() {
-  replayChunks = [];
-  replayHeaderChunk = null;
-  bufferFull = false;
+  replayChunks = []; replayHeaderChunk = null; bufferFull = false;
   if (replayPlayUrl) { URL.revokeObjectURL(replayPlayUrl); replayPlayUrl = null; }
-  const prog = document.getElementById('buf-prog');
-  if (prog) prog.style.strokeDashoffset = '35';
-  const lsProg = document.getElementById('ls-buf-prog');
-  if (lsProg) lsProg.style.strokeDashoffset = '35';
-  ['replay-btn','ls-replay-btn'].forEach(id=>{
-    const btn=document.getElementById(id);
-    if(!btn) return;
-    btn.disabled = true;
-    btn.classList.remove('ready', 'playing');
+  ['buf-prog','ls-buf-prog'].forEach(id => {
+    const p = document.getElementById(id); if(p) p.style.strokeDashoffset = '35';
+  });
+  ['replay-btn','ls-replay-btn'].forEach(id => {
+    const b = document.getElementById(id); if(!b) return;
+    b.disabled = true; b.classList.remove('ready','playing');
   });
   stopReplay();
 }
