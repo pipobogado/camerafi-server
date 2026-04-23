@@ -13,12 +13,16 @@
 <title>CameraFi Web</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #0a0a0a; color: #e0e0e0; font-family: 'SF Pro Display', -apple-system, sans-serif; overflow-x: hidden; }
+body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, sans-serif; overflow-x: hidden; }
 #app { display: flex; flex-direction: column; height: 100vh; max-width: 430px; margin: 0 auto; position: relative; }
-#viewfinder { position: relative; width: 100%; aspect-ratio: 9/16; background: #000; overflow: hidden; flex-shrink: 0; max-height: 55vh; transition: all 0.4s ease; }
-#video { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
+
+/* VIEWFINDER */
+#viewfinder { position: relative; width: 100%; aspect-ratio: 9/16; background: #111; overflow: hidden; flex-shrink: 0; max-height: 55vh; }
+#video { width: 100%; height: 100%; object-fit: cover; display: block; }
 #overlay-container { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
 .overlay-iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; background: transparent; pointer-events: none; }
+
+/* LANDSCAPE */
 body.landscape { background: #000; overflow: hidden; }
 body.landscape #app { max-width: 100%; height: 100vh; }
 body.landscape #viewfinder { width: 100vw; height: 100vh; max-height: 100vh; aspect-ratio: unset; position: fixed; inset: 0; z-index: 1; }
@@ -30,6 +34,8 @@ body.landscape #ls-overlay { display: block; }
 #ls-controls.open { transform: translateX(0); }
 #ls-controls::-webkit-scrollbar { width: 3px; }
 #ls-controls::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+/* HUD */
 #hud-top { position: absolute; top: 0; left: 0; right: 0; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(to bottom, rgba(0,0,0,0.75), transparent); z-index: 10; }
 #hud-bottom { position: absolute; bottom: 0; left: 0; right: 0; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(to top, rgba(0,0,0,0.75), transparent); z-index: 10; }
 .badge { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 4px; }
@@ -43,6 +49,8 @@ body.landscape #ls-overlay { display: block; }
 #zoom-bar { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 10; }
 .zoom-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s; }
 .zoom-dot.active { background: #fff; transform: scale(1.3); }
+
+/* LANDSCAPE BAR */
 #tap-hint { position: fixed; right: 12px; top: 50%; transform: translateY(-50%); z-index: 22; display: none; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
 body.landscape #tap-hint { display: flex; }
 #tap-hint span { font-size: 9px; color: rgba(255,255,255,0.4); writing-mode: vertical-rl; letter-spacing: 0.1em; }
@@ -55,6 +63,8 @@ body.landscape #ls-bottom { display: flex; }
 #ls-settings-btn { background: rgba(30,30,30,0.85); color: #aaa; border: 1px solid #333; padding: 10px 14px; }
 #ls-settings-btn.open { color: #7aa7e0; border-color: #4a6fa5; }
 #ls-timer { font-size: 12px; font-variant-numeric: tabular-nums; color: #fff; font-weight: 500; background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 8px; min-width: 80px; text-align: center; }
+
+/* CONTROLS */
 #controls { flex: 1; background: #111; overflow-y: auto; padding-bottom: 80px; }
 #controls::-webkit-scrollbar { width: 3px; }
 #controls::-webkit-scrollbar-track { background: #111; }
@@ -75,24 +85,29 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
 .wb-btn.active { border-color: #e8b04a; color: #e8b04a; background: #1e1a10; }
 #vu-meter { flex: 1; height: 5px; background: #222; border-radius: 3px; overflow: hidden; }
 #vu-fill { height: 100%; width: 0%; background: linear-gradient(to right, #22c55e, #eab308, #e53e3e); border-radius: 3px; transition: width 0.05s; }
+
+/* Network profile */
+.net-btn { flex: 1; padding: 8px 4px; border-radius: 8px; border: 1px solid #333; background: #1a1a1a; color: #888; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s; text-align: center; }
+.net-btn.active-net { border-color: #4a6fa5 !important; background: #1a1a2e !important; color: #7aa7e0 !important; }
+
+/* RTMP inputs */
 .rtmp-row { padding: 7px 14px; }
 .rtmp-label { font-size: 10px; color: #555; margin-bottom: 4px; }
-.rtmp-input { width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px 10px; color: #ccc; font-size: 11px; outline: none; font-family: 'SF Mono', monospace; }
+.rtmp-input { width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px 10px; color: #ccc; font-size: 11px; outline: none; font-family: monospace; }
 .rtmp-input:focus { border-color: #4a6fa5; }
 .rtmp-input::placeholder { color: #444; }
-.srv-input { width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px 10px; color: #ccc; font-size: 11px; outline: none; font-family: 'SF Mono', monospace; }
-.srv-input:focus { border-color: #22c55e; }
-.srv-input::placeholder { color: #444; }
 #connect-btn { margin: 6px 14px 4px; width: calc(100% - 28px); padding: 9px; border-radius: 8px; border: 1px solid #2a4a2a; background: #0f2a0f; color: #22c55e; font-size: 12px; font-weight: 600; cursor: pointer; }
 #connect-btn.connected { background: #2a0f0f; border-color: #4a2a2a; color: #e53e3e; }
 #restream-help { margin: 6px 14px; padding: 8px 10px; background: #12161e; border: 1px solid #1e2a3a; border-radius: 8px; }
 #restream-help p { font-size: 10px; color: #5a7a9a; line-height: 1.5; }
 #restream-help a { color: #7aa7e0; text-decoration: none; }
+
+/* Overlays */
 .overlay-add-row { display: flex; gap: 6px; padding: 8px 14px; }
 .overlay-url-input { flex: 1; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px 10px; color: #ccc; font-size: 11px; outline: none; }
 .overlay-url-input:focus { border-color: #6b46c1; }
 .overlay-url-input::placeholder { color: #444; }
-.overlay-add-btn { padding: 8px 12px; border-radius: 8px; border: none; background: #2d1f4e; color: #a78bfa; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.overlay-add-btn { padding: 8px 12px; border-radius: 8px; border: none; background: #2d1f4e; color: #a78bfa; font-size: 12px; font-weight: 600; cursor: pointer; }
 .overlay-list { padding: 0 14px 8px; display: flex; flex-direction: column; gap: 6px; }
 .overlay-item { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; }
 .overlay-item.active-ov { border-color: #6b46c1; background: #1a1228; }
@@ -112,6 +127,8 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
 .overlay-presets { display: flex; gap: 5px; padding: 4px 14px 8px; overflow-x: auto; }
 .overlay-presets::-webkit-scrollbar { display: none; }
 .preset-chip { flex-shrink: 0; padding: 4px 10px; border-radius: 20px; border: 1px solid #2d1f4e; background: transparent; color: #7c5fbd; font-size: 10px; cursor: pointer; white-space: nowrap; }
+
+/* Save */
 #save-section { background: #0c0c10; }
 .save-row { display: flex; gap: 6px; padding: 8px 14px; }
 .save-btn { flex: 1; padding: 9px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: 1px solid #2a2a3a; background: #15151e; color: #888; }
@@ -121,49 +138,42 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
 .save-btn:active { transform: scale(0.97); }
 #save-msg { font-size: 10px; padding: 0 14px 8px; color: #22c55e; display: none; }
 #save-msg.error { color: #e07070; }
+
+/* Status */
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #555; display: inline-block; margin-right: 5px; }
 .status-dot.ok { background: #22c55e; }
 .status-dot.live { background: #e53e3e; animation: pulse 1s ease-in-out infinite; }
 .status-dot.err { background: #e8b04a; }
 #conn-status, #srv-status { font-size: 10px; color: #555; display: flex; align-items: center; padding: 4px 14px 8px; }
+
+/* Bottom bar */
 #bottom-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; padding: 10px 14px; background: rgba(10,10,10,0.95); backdrop-filter: blur(10px); border-top: 1px solid #1a1a1a; display: flex; gap: 8px; align-items: center; z-index: 100; }
 #go-live-btn { flex: 1; padding: 13px; border-radius: 10px; border: none; background: #e53e3e; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; letter-spacing: 0.04em; transition: all 0.2s; }
 #go-live-btn.live { background: #1a1a1a; color: #e53e3e; border: 2px solid #e53e3e; }
 #go-live-btn:active { transform: scale(0.97); }
 #cam-btn { width: 44px; height: 44px; border-radius: 10px; border: 1px solid #2a2a2a; background: #1a1a1a; color: #888; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-#replay-btn { width: 44px; height: 44px; border-radius: 10px; border: 1px solid #2a3a2a; background: #0f1f0f; color: #4a8a4a; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; position: relative; }
-#replay-btn.ready { border-color: #2a5a2a; color: #22c55e; }
-#replay-btn.playing { background: #0f2a0f; border-color: #22c55e; color: #22c55e; animation: pulse 1s ease-in-out infinite; }
-#replay-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-#replay-btn .buf-ring { position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; }
-#replay-btn .buf-ring circle { fill: none; stroke: #333; stroke-width: 2; }
-#replay-btn .buf-ring .prog { stroke: #22c55e; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 35; stroke-dashoffset: 35; transition: stroke-dashoffset 0.5s linear; transform: rotate(-90deg); transform-origin: 50% 50%; }
-/* Replay overlay */
-#replay-overlay { display: none; position: absolute; inset: 0; z-index: 15; background: #000; }
-#replay-video { width: 100%; height: 100%; object-fit: cover; }
-#replay-hud { position: absolute; top: 0; left: 0; right: 0; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); z-index: 16; }
-#replay-label { font-size: 11px; font-weight: 700; color: #22c55e; letter-spacing: 0.1em; background: rgba(0,30,0,0.6); padding: 4px 10px; border-radius: 6px; border: 1px solid #22c55e44; }
-#replay-counter { font-size: 12px; font-variant-numeric: tabular-nums; color: #fff; font-weight: 500; }
-#replay-close { font-size: 18px; color: rgba(255,255,255,0.7); background: none; border: none; cursor: pointer; padding: 2px 6px; }
-#replay-progress { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,0.15); z-index: 16; }
-#replay-progress-fill { height: 100%; background: #22c55e; width: 0%; transition: width 0.1s linear; }
+
+/* Landscape mini controls */
 .ls-section { border-bottom: 1px solid #1e1e1e; padding: 8px 0; }
 .ls-sh { padding: 6px 12px 4px; font-size: 9px; font-weight: 600; letter-spacing: 0.1em; color: #444; text-transform: uppercase; }
 .ls-cr { display: flex; align-items: center; gap: 8px; padding: 5px 12px; }
 .ls-cl { font-size: 10px; color: #777; min-width: 30px; }
 .ls-cv { font-size: 10px; color: #aaa; min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
 .ls-cr input[type=range] { flex: 1; }
+
 /* PWA Install Banner */
-#pwa-banner { display:none; position:fixed; bottom:80px; left:50%; transform:translateX(-50%); width:calc(100% - 28px); max-width:400px; background:#1a1a2e; border:1px solid #4a6fa5; border-radius:12px; padding:12px 14px; z-index:200; flex-direction:row; align-items:center; gap:10px; box-shadow:0 4px 20px rgba(0,0,0,0.5); }
-#pwa-banner.show { display:flex; }
-#pwa-banner-text strong { font-size:12px; color:#7aa7e0; display:block; }
-#pwa-banner-text span { font-size:10px; color:#666; }
-#pwa-install-btn { padding:8px 14px; border-radius:8px; border:none; background:#4a6fa5; color:#fff; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
-#pwa-dismiss-btn { width:28px; height:28px; border-radius:6px; border:1px solid #333; background:transparent; color:#555; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+#pwa-banner { display: none; position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); width: calc(100% - 28px); max-width: 400px; background: #1a1a2e; border: 1px solid #4a6fa5; border-radius: 12px; padding: 12px 14px; z-index: 200; flex-direction: row; align-items: center; gap: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+#pwa-banner.show { display: flex; }
+#pwa-banner-text strong { font-size: 12px; color: #7aa7e0; display: block; }
+#pwa-banner-text span { font-size: 10px; color: #666; }
+#pwa-install-btn { padding: 8px 14px; border-radius: 8px; border: none; background: #4a6fa5; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+#pwa-dismiss-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid #333; background: transparent; color: #555; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 </style>
 </head>
 <body>
 <div id="app">
+
+  <!-- VIEWFINDER -->
   <div id="viewfinder">
     <video id="video" autoplay muted playsinline></video>
     <div id="overlay-container"></div>
@@ -188,24 +198,12 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
       <div class="zoom-dot" data-zoom="2.0" onclick="setZoom(2.0)"></div>
       <div class="zoom-dot" data-zoom="3.0" onclick="setZoom(3.0)"></div>
     </div>
-    <!-- REPLAY OVERLAY -->
-    <div id="replay-overlay">
-      <video id="replay-video" playsinline></video>
-      <div id="replay-hud">
-        <span id="replay-label">⟳ REPLAY</span>
-        <div style="display:flex;gap:5px;align-items:center;">
-          <button class="rspd-btn" data-s="0.5" onclick="setReplaySpeed(0.5)" style="padding:3px 7px;border-radius:5px;border:none;background:rgba(255,255,255,0.1);color:#fff;font-size:10px;font-weight:600;cursor:pointer;">x0.5</button>
-          <button class="rspd-btn" data-s="1" onclick="setReplaySpeed(1)" style="padding:3px 7px;border-radius:5px;border:none;background:rgba(34,197,94,0.3);color:#22c55e;font-size:10px;font-weight:600;cursor:pointer;">x1</button>
-          <button class="rspd-btn" data-s="2" onclick="setReplaySpeed(2)" style="padding:3px 7px;border-radius:5px;border:none;background:rgba(255,255,255,0.1);color:#fff;font-size:10px;font-weight:600;cursor:pointer;">x2</button>
-        </div>
-        <span id="replay-counter">10s</span>
-        <button id="replay-close" onclick="stopReplay()">✕</button>
-      </div>
-      <div id="replay-progress"><div id="replay-progress-fill"></div></div>
-    </div>
   </div>
 
+  <!-- PORTRAIT CONTROLS -->
   <div id="controls">
+
+    <!-- Resolución -->
     <div class="section">
       <div class="section-header">Resolución</div>
       <div class="res-group">
@@ -214,12 +212,28 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
         <div class="res-btn active" onclick="setRes(this,'1280x720')">720p</div>
       </div>
     </div>
+
+    <!-- Cámara -->
     <div class="section">
       <div class="section-header">Cámara</div>
-      <div class="ctrl-row"><span class="ctrl-label">ISO <span id="cam-iso-support" style="font-size:9px;color:#555;"></span></span><input type="range" id="iso" min="50" max="3200" step="50" value="100" oninput="updateVal('iso-val',this.value,'ISO ')"><span class="ctrl-val" id="iso-val">ISO 100</span></div>
-      <div class="ctrl-row"><span class="ctrl-label">Exp <span id="cam-exp-support" style="font-size:9px;color:#555;"></span></span><input type="range" id="exp" min="-3" max="3" step="0.1" value="0" oninput="document.getElementById('exp-val').textContent='EV '+parseFloat(this.value).toFixed(1);applyExp(parseFloat(this.value));autoSave()"><span class="ctrl-val" id="exp-val">EV 0.0</span></div>
-      <div class="ctrl-row"><span class="ctrl-label">Zoom</span><input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1" oninput="updateZoomSlider(this.value)"><span class="ctrl-val" id="zoom-val">1.0x</span></div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">ISO <span id="cam-iso-support" style="font-size:9px;color:#555;"></span></span>
+        <input type="range" id="iso" min="50" max="3200" step="50" value="100" oninput="updateVal('iso-val',this.value,'ISO ')">
+        <span class="ctrl-val" id="iso-val">ISO 100</span>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">Exp <span id="cam-exp-support" style="font-size:9px;color:#555;"></span></span>
+        <input type="range" id="exp" min="-3" max="3" step="0.1" value="0" oninput="document.getElementById('exp-val').textContent='EV '+parseFloat(this.value).toFixed(1);applyExp(parseFloat(this.value));autoSave()">
+        <span class="ctrl-val" id="exp-val">EV 0.0</span>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">Zoom</span>
+        <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1" oninput="updateZoomSlider(this.value)">
+        <span class="ctrl-val" id="zoom-val">1.0x</span>
+      </div>
     </div>
+
+    <!-- Balance de blancos -->
     <div class="section">
       <div class="section-header">Balance de blancos</div>
       <div class="wb-group">
@@ -230,31 +244,38 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
         <div class="wb-btn" onclick="setWB(this)">Fluoresc.</div>
         <div class="wb-btn" onclick="setWB(this)">Flash</div>
       </div>
-      <div class="ctrl-row"><span class="ctrl-label">Temp <span id="cam-wb-support" style="font-size:9px;color:#555;"></span></span><input type="range" id="wb-temp" min="2500" max="8000" step="100" value="5600" oninput="updateVal('wb-val',this.value,'','K')"><span class="ctrl-val" id="wb-val">5600K</span></div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">Temp <span id="cam-wb-support" style="font-size:9px;color:#555;"></span></span>
+        <input type="range" id="wb-temp" min="2500" max="8000" step="100" value="5600" oninput="updateVal('wb-val',this.value,'','K')">
+        <span class="ctrl-val" id="wb-val">5600K</span>
+      </div>
     </div>
+
+    <!-- Red y Calidad -->
     <div class="section">
       <div class="section-header">Red y Calidad</div>
-      <!-- Network profile selector -->
       <div style="padding:8px 14px 4px;">
         <div style="font-size:10px;color:#555;margin-bottom:6px;letter-spacing:0.05em;">PERFIL DE RED</div>
         <div style="display:flex;gap:6px;">
-          <button class="net-btn" id="net-wifi" onclick="setNetProfile('wifi')" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#888;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;">
+          <button class="net-btn" id="net-wifi" onclick="setNetProfile('wifi')">
             <div style="font-size:16px;margin-bottom:2px;">📶</div>WiFi
           </button>
-          <button class="net-btn active-net" id="net-lte" onclick="setNetProfile('lte')" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid #4a6fa5;background:#1a1a2e;color:#7aa7e0;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;">
+          <button class="net-btn active-net" id="net-lte" onclick="setNetProfile('lte')">
             <div style="font-size:16px;margin-bottom:2px;">📡</div>LTE 4G
           </button>
-          <button class="net-btn" id="net-custom" onclick="setNetProfile('custom')" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#888;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;">
+          <button class="net-btn" id="net-custom" onclick="setNetProfile('custom')">
             <div style="font-size:16px;margin-bottom:2px;">⚙️</div>Custom
           </button>
         </div>
-        <div id="net-profile-info" style="margin-top:6px;padding:6px 8px;border-radius:6px;background:#1a1a2e;border:1px solid #2a3a4a;font-size:10px;color:#5a7a9a;line-height:1.5;"></div>
+        <div id="net-profile-info" style="margin-top:6px;padding:6px 8px;border-radius:6px;background:#1a1a2e;border:1px solid #2a3a4a;font-size:10px;color:#5a7a9a;line-height:1.5;">1080p · 4.5 Mbps — LTE activo</div>
       </div>
       <div class="section-header" style="margin-top:4px;">Audio</div>
       <div class="ctrl-row"><span class="ctrl-label">Mic</span><div id="vu-meter"><div id="vu-fill"></div></div><span class="ctrl-val">ON</span></div>
       <div class="ctrl-row"><span class="ctrl-label">Vol</span><input type="range" id="mic-vol" min="0" max="100" value="80" oninput="updateVal('vol-val',this.value,'','%')"><span class="ctrl-val" id="vol-val">80%</span></div>
-      <div class="ctrl-row" id="bitrate-row"><span class="ctrl-label">Bitrate</span><input type="range" id="vid-bitrate" min="1" max="12" step="0.5" value="2.5" oninput="updateBitrate(this.value)"><span class="ctrl-val" id="br-val">2.5 Mbps</span></div>
+      <div class="ctrl-row" id="bitrate-row"><span class="ctrl-label">Bitrate</span><input type="range" id="vid-bitrate" min="1" max="12" step="0.5" value="4.5" oninput="updateBitrate(this.value)"><span class="ctrl-val" id="br-val">4.5 Mbps</span></div>
     </div>
+
+    <!-- Overlays -->
     <div class="section">
       <div class="section-header"><span>Overlays</span><span id="ov-count-label" style="color:#6b46c1;font-size:10px;"></span></div>
       <div class="overlay-add-row">
@@ -271,12 +292,16 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
         <div class="overlay-empty" id="overlay-empty">Sin overlays. Agrega una URL arriba.</div>
       </div>
     </div>
+
+    <!-- Servidor -->
     <div class="section">
       <div class="section-header">Servidor de Stream</div>
-      <div class="rtmp-row"><div class="rtmp-label">URL WebSocket (Railway / localhost)</div><input class="srv-input" id="server-url" type="url" placeholder="wss://tu-app.railway.app" oninput="autoSave()"></div>
+      <div class="rtmp-row"><div class="rtmp-label">URL WebSocket (Railway)</div><input class="rtmp-input" id="server-url" type="url" placeholder="wss://tu-app.railway.app" oninput="autoSave()"></div>
       <button id="connect-btn" onclick="toggleServerConnection()">Conectar servidor</button>
       <div id="srv-status"><span class="status-dot" id="srv-dot"></span><span id="srv-text">Sin conectar</span></div>
     </div>
+
+    <!-- RTMP -->
     <div class="section">
       <div class="section-header">Restream / RTMP</div>
       <div id="restream-help"><p>Obtén tu URL y clave en <a href="https://restream.io" target="_blank">restream.io</a> → Dashboard → Stream Setup → Copy RTMP</p></div>
@@ -284,10 +309,12 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
       <div class="rtmp-row"><div class="rtmp-label">Stream Key</div><input class="rtmp-input" id="rtmp-key" type="password" placeholder="re_xxxxxxxxxxxxxxxxxx" oninput="autoSave()"></div>
       <div id="conn-status"><span class="status-dot" id="status-dot"></span><span id="status-text">Sin configurar</span></div>
     </div>
+
+    <!-- Guardar -->
     <div id="save-section" class="section">
       <div class="section-header">Ajustes guardados</div>
       <div class="save-row">
-        <button class="save-btn success" onclick="saveSettings()">💾 Guardar ahora</button>
+        <button class="save-btn success" onclick="saveSettings()">💾 Guardar</button>
         <button class="save-btn primary" onclick="exportJSON()">↑ Exportar JSON</button>
       </div>
       <div class="save-row" style="padding-top:0;">
@@ -296,10 +323,12 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
       </div>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(this)">
       <div id="save-msg"></div>
-      <div style="font-size:10px;color:#444;padding:0 14px 10px;">Los ajustes se guardan automáticamente al modificarlos.</div>
+      <div style="font-size:10px;color:#444;padding:0 14px 10px;">Se guarda automáticamente al modificar.</div>
     </div>
-  </div>
 
+  </div><!-- end controls -->
+
+  <!-- LANDSCAPE OVERLAY -->
   <div id="ls-overlay">
     <div id="tap-hint"><span>AJUSTES</span><div></div></div>
     <div id="ls-controls">
@@ -312,7 +341,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
       <div class="ls-section">
         <div class="ls-sh">Audio / Video</div>
         <div class="ls-cr"><span class="ls-cl">Vol</span><input type="range" id="ls-vol" min="0" max="100" value="80" oninput="mirrorSlider('mic-vol','vol-val',this.value,'','%')"><span class="ls-cv" id="ls-vol-v">80%</span></div>
-        <div class="ls-cr"><span class="ls-cl">Bps</span><input type="range" id="ls-br" min="1" max="12" step="0.5" value="2.5" oninput="mirrorBitrate(this.value)"><span class="ls-cv" id="ls-br-v">2.5M</span></div>
+        <div class="ls-cr"><span class="ls-cl">Bps</span><input type="range" id="ls-br" min="1" max="12" step="0.5" value="4.5" oninput="mirrorBitrate(this.value)"><span class="ls-cv" id="ls-br-v">4.5M</span></div>
       </div>
       <div class="ls-section">
         <div class="ls-sh">Resolución</div>
@@ -333,728 +362,16 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
       <button class="ls-btn" id="ls-settings-btn" onclick="toggleLsControls()">⚙ Ajustes</button>
       <div id="ls-timer">00:00:00</div>
       <button class="ls-btn" id="ls-live-btn" onclick="toggleLive()">IR EN VIVO</button>
-      <button id="ls-replay-btn" onclick="triggerReplay()" disabled title="Replay 10s" style="width:44px;height:44px;border-radius:10px;border:1px solid #2a3a2a;background:#0f1f0f;color:#4a8a4a;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;position:relative;pointer-events:all;">
-        ⟳
-        <svg style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="none" stroke="#333" stroke-width="2"/><circle id="ls-buf-prog" cx="7" cy="7" r="5" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-dasharray="35" stroke-dashoffset="35" style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset 0.5s linear;"/></svg>
-      </button>
     </div>
   </div>
-</div>
 
+</div><!-- end app -->
+
+<!-- BOTTOM BAR -->
 <div id="bottom-bar">
   <button id="cam-btn" onclick="toggleCam()">⏻</button>
   <button id="go-live-btn" onclick="toggleLive()">IR EN VIVO</button>
-  <button id="replay-btn" onclick="triggerReplay()" disabled title="Replay 10s">
-    ⟳
-    <svg class="buf-ring" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5"/><circle class="prog" id="buf-prog" cx="7" cy="7" r="5"/></svg>
-  </button>
 </div>
-
-<script>
-let camStream=null,isLive=false,liveSecs=0,timerInt=null;
-let audioCtx=null,analyser=null;
-let overlays=[],ovId=0;
-let ws=null,mediaRecorder=null,serverConnected=false;
-let isLandscape=false,lsControlsOpen=false,autoSaveTimer=null;
-const video=document.getElementById('video');
-const overlayContainer=document.getElementById('overlay-container');
-
-function checkOrientation(){
-  const land=window.innerWidth>window.innerHeight;
-  if(land===isLandscape)return;
-  isLandscape=land;
-  if(land){document.body.classList.add('landscape');document.getElementById('orient-badge').textContent='↔';syncLsSliders();syncLsStatus();}
-  else{document.body.classList.remove('landscape');document.getElementById('orient-badge').textContent='↕';if(lsControlsOpen)closeLsControls();}
-}
-function toggleLsControls(){
-  lsControlsOpen=!lsControlsOpen;
-  document.getElementById('ls-controls').classList.toggle('open',lsControlsOpen);
-  document.getElementById('ls-settings-btn').classList.toggle('open',lsControlsOpen);
-  document.getElementById('tap-hint').style.display=lsControlsOpen?'none':'flex';
-}
-function closeLsControls(){
-  lsControlsOpen=false;
-  document.getElementById('ls-controls').classList.remove('open');
-  document.getElementById('ls-settings-btn').classList.remove('open');
-  document.getElementById('tap-hint').style.display='flex';
-}
-function syncLsSliders(){
-  document.getElementById('ls-iso').value=document.getElementById('iso').value;
-  document.getElementById('ls-iso-v').textContent=document.getElementById('iso').value;
-  document.getElementById('ls-exp').value=document.getElementById('exp').value;
-  document.getElementById('ls-exp-v').textContent=parseFloat(document.getElementById('exp').value).toFixed(1);
-  document.getElementById('ls-zoom').value=document.getElementById('zoom-slider').value;
-  document.getElementById('ls-zoom-v').textContent=parseFloat(document.getElementById('zoom-slider').value).toFixed(1)+'x';
-  document.getElementById('ls-vol').value=document.getElementById('mic-vol').value;
-  document.getElementById('ls-vol-v').textContent=document.getElementById('mic-vol').value+'%';
-  document.getElementById('ls-br').value=document.getElementById('vid-bitrate').value;
-  document.getElementById('ls-br-v').textContent=parseFloat(document.getElementById('vid-bitrate').value).toFixed(1)+'M';
-}
-function syncLsStatus(){
-  const dot=document.getElementById('status-dot');
-  document.getElementById('ls-status-dot').className=dot.className;
-  document.getElementById('ls-status-text').textContent=document.getElementById('status-text').textContent;
-}
-function mirrorSlider(mainId,valId,val,prefix,suffix){
-  const m=document.getElementById(mainId);if(m)m.value=val;
-  const v=document.getElementById(valId);if(v)v.textContent=(prefix||'')+val+(suffix||'');
-  autoSave();
-}
-function mirrorExp(v){
-  document.getElementById('exp').value=v;
-  document.getElementById('exp-val').textContent='EV '+parseFloat(v).toFixed(1);
-  document.getElementById('ls-exp-v').textContent=parseFloat(v).toFixed(1);
-  applyExp(parseFloat(v));
-  autoSave();
-}
-function mirrorZoom(v){
-  const z=parseFloat(parseFloat(v).toFixed(1));
-  document.getElementById('zoom-slider').value=z;document.getElementById('zoom-val').textContent=z.toFixed(1)+'x';
-  document.getElementById('zoom-label').textContent=z.toFixed(1)+'x';document.getElementById('ls-zoom-v').textContent=z.toFixed(1)+'x';
-  applyZoom(z);
-}
-function mirrorBitrate(v){
-  const mbps=parseFloat(parseFloat(v).toFixed(1));
-  document.getElementById('vid-bitrate').value=v;document.getElementById('br-val').textContent=mbps+' Mbps';
-  document.getElementById('bitrate-badge').textContent=mbps+' Mbps';document.getElementById('ls-br-v').textContent=mbps+'M';
-  autoSave();
-}
-window.addEventListener('resize',checkOrientation);
-window.addEventListener('orientationchange',()=>setTimeout(checkOrientation,200));
-
-// ── IMAGE CAPTURE API ──
-let imageCapture = null;
-let camCapabilities = {};
-
-async function initCam(){
-  const resText=document.querySelector('.res-btn.active')?.textContent||'1080p';
-  const dims=resText==='2K'?[2560,1440]:resText==='720p'?[1280,720]:[1920,1080];
-  try{
-    if(camStream)camStream.getTracks().forEach(t=>t.stop());
-    camStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment',width:{ideal:dims[0]},height:{ideal:dims[1]},frameRate:{ideal:30}},
-      audio:{echoCancellation:true,noiseSuppression:true,sampleRate:44100}
-    });
-    video.srcObject=camStream;
-    document.getElementById('cam-btn').textContent='🔄';
-    setupAudio();
-    setStatus('ok','Cámara lista');
-    // Init ImageCapture and probe capabilities
-    await initImageCapture();
-  }catch(e){setStatus('err','Sin permisos de cámara');}
-}
-
-async function initImageCapture(){
-  try{
-    const track = camStream.getVideoTracks()[0];
-    if(!track) return;
-    imageCapture = new ImageCapture(track);
-    camCapabilities = track.getCapabilities ? track.getCapabilities() : {};
-    console.log('[CAM] Capabilities:', JSON.stringify(camCapabilities));
-    updateCapabilityUI();
-    // Apply saved values after camera ready
-    applyAllCamConstraints();
-  }catch(e){
-    console.warn('[CAM] ImageCapture no disponible:', e.message);
-    imageCapture = null;
-    camCapabilities = {};
-    updateCapabilityUI();
-  }
-}
-
-function updateCapabilityUI(){
-  const caps = camCapabilities;
-  // ISO
-  const isoSupported = caps.iso && caps.iso.min !== undefined;
-  const isoEl = document.getElementById('iso');
-  const isoLabel = document.getElementById('cam-iso-support');
-  if(isoEl){
-    if(isoSupported){
-      isoEl.min = caps.iso.min; isoEl.max = caps.iso.max;
-      isoEl.step = Math.max(1, Math.round((caps.iso.max - caps.iso.min) / 50));
-      isoEl.disabled = false;
-      if(isoLabel) isoLabel.textContent = '✓';
-    } else {
-      isoEl.disabled = false; // keep slider but warn
-      if(isoLabel) isoLabel.textContent = '~';
-    }
-  }
-  // Exposure
-  const expSupported = caps.exposureCompensation && caps.exposureCompensation.min !== undefined;
-  const expEl = document.getElementById('exp');
-  const expLabel = document.getElementById('cam-exp-support');
-  if(expEl){
-    if(expSupported){
-      expEl.min = caps.exposureCompensation.min;
-      expEl.max = caps.exposureCompensation.max;
-      expEl.step = caps.exposureCompensation.step || 0.1;
-      if(expLabel) expLabel.textContent = '✓';
-    } else {
-      if(expLabel) expLabel.textContent = '~';
-    }
-  }
-  // WB temp
-  const wbSupported = caps.colorTemperature && caps.colorTemperature.min !== undefined;
-  const wbEl = document.getElementById('wb-temp');
-  const wbLabel = document.getElementById('cam-wb-support');
-  if(wbEl){
-    if(wbSupported){
-      wbEl.min = caps.colorTemperature.min; wbEl.max = caps.colorTemperature.max;
-      wbEl.step = caps.colorTemperature.step || 100;
-      if(wbLabel) wbLabel.textContent = '✓';
-    } else {
-      if(wbLabel) wbLabel.textContent = '~';
-    }
-  }
-  // Zoom
-  const zoomSupported = caps.zoom && caps.zoom.min !== undefined;
-  const zoomEl = document.getElementById('zoom-slider');
-  if(zoomEl && zoomSupported){
-    zoomEl.min = caps.zoom.min; zoomEl.max = caps.zoom.max;
-    zoomEl.step = caps.zoom.step || 0.1;
-  }
-}
-
-async function applyCamConstraint(constraints){
-  if(!camStream) return;
-  const track = camStream.getVideoTracks()[0];
-  if(!track) return;
-  try{
-    await track.applyConstraints({ advanced: [constraints] });
-  }catch(e){
-    console.warn('[CAM] applyConstraints failed:', e.message, constraints);
-  }
-}
-
-function applyAllCamConstraints(){
-  const iso = parseFloat(document.getElementById('iso')?.value || 100);
-  const exp = parseFloat(document.getElementById('exp')?.value || 0);
-  const wb = document.getElementById('wb-temp')?.value;
-  const wbMode = document.querySelector('.wb-btn.active')?.textContent || 'Auto';
-  applyISO(iso);
-  applyExp(exp);
-  applyWBMode(wbMode, wb ? parseInt(wb) : null);
-}
-
-async function applyISO(val){
-  const caps = camCapabilities;
-  if(caps.iso){
-    const clamped = Math.min(caps.iso.max, Math.max(caps.iso.min, val));
-    await applyCamConstraint({ iso: clamped, exposureMode: 'manual' });
-  }
-  // Fallback: try exposureMode auto if manual not supported
-}
-
-async function applyExp(val){
-  const caps = camCapabilities;
-  if(caps.exposureCompensation){
-    const clamped = Math.min(caps.exposureCompensation.max,
-      Math.max(caps.exposureCompensation.min, parseFloat(val)));
-    await applyCamConstraint({ exposureCompensation: clamped });
-  }
-}
-
-async function applyWBMode(modeName, tempVal){
-  const caps = camCapabilities;
-  // Map UI label → API whiteBalanceMode
-  const modeMap = {
-    'Auto': 'continuous',
-    'Luz día': 'manual',
-    'Nublado': 'manual',
-    'Tungsteno': 'manual',
-    'Fluoresc.': 'manual',
-    'Flash': 'manual'
-  };
-  // Approximate color temps for presets
-  const tempMap = {
-    'Auto': null,
-    'Luz día': 5600,
-    'Nublado': 6500,
-    'Tungsteno': 3200,
-    'Fluoresc.': 4000,
-    'Flash': 5500
-  };
-  const apiMode = modeMap[modeName] || 'continuous';
-  const presetTemp = tempMap[modeName] ?? tempVal;
-
-  const constraint = {};
-  if(caps.whiteBalanceMode && caps.whiteBalanceMode.includes(apiMode)){
-    constraint.whiteBalanceMode = apiMode;
-  }
-  if(apiMode === 'manual' && caps.colorTemperature && presetTemp){
-    const clamped = Math.min(caps.colorTemperature.max,
-      Math.max(caps.colorTemperature.min, presetTemp));
-    constraint.colorTemperature = clamped;
-    // Sync slider to preset temp
-    const wbEl = document.getElementById('wb-temp');
-    if(wbEl){ wbEl.value = clamped; document.getElementById('wb-val').textContent = clamped + 'K'; }
-  }
-  if(Object.keys(constraint).length) await applyCamConstraint(constraint);
-}
-function toggleCam(){
-  if(!camStream){initCam();return;}
-  camStream.getTracks().forEach(t=>t.stop());camStream=null;video.srcObject=null;
-  document.getElementById('cam-btn').textContent='⏻';setStatus('','Sin cámara');
-}
-function setupAudio(){
-  try{
-    if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    if(analyser)analyser.disconnect();
-    analyser=audioCtx.createAnalyser();analyser.fftSize=256;
-    const at=camStream.getAudioTracks()[0];if(!at)return;
-    audioCtx.createMediaStreamSource(new MediaStream([at])).connect(analyser);
-    const buf=new Uint8Array(analyser.frequencyBinCount);
-    (function tick(){if(!analyser)return;analyser.getByteFrequencyData(buf);const avg=buf.reduce((a,b)=>a+b,0)/buf.length;document.getElementById('vu-fill').style.width=Math.min(100,Math.round((avg/128)*180))+'%';requestAnimationFrame(tick);})();
-  }catch(e){}
-}
-function toggleServerConnection(){if(serverConnected){disconnectServer();return;}connectServer();}
-
-let wsKeepaliveInt = null;
-
-function connectServer(){
-  const url=document.getElementById('server-url').value.trim();
-  if(!url){setSrvStatus('err','Ingresa la URL');return;}
-  setSrvStatus('','Conectando...');
-  ws=new WebSocket(url);
-  ws.binaryType='arraybuffer';
-  ws.onopen=()=>{
-    serverConnected=true;
-    setSrvStatus('ok','Servidor conectado ✓');
-    document.getElementById('connect-btn').textContent='Desconectar';
-    document.getElementById('connect-btn').classList.add('connected');
-    // Client-side keepalive: send ping JSON every 20s so server doesn't drop us
-    clearInterval(wsKeepaliveInt);
-    wsKeepaliveInt=setInterval(()=>{
-      if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'ping'}));
-    },20000);
-  };
-  ws.onmessage=(e)=>{try{const m=JSON.parse(e.data);if(m.type==='started')setStatus('live','● En vivo → Restream');if(m.type==='stopped')setStatus('ok','Cámara lista');if(m.type==='error')setStatus('err','⚠ '+m.message);}catch(e){}};
-  ws.onerror=()=>setSrvStatus('err','Error de conexión');
-  ws.onclose=()=>{
-    serverConnected=false;
-    clearInterval(wsKeepaliveInt);
-    setSrvStatus('','Desconectado');
-    document.getElementById('connect-btn').textContent='Conectar servidor';
-    document.getElementById('connect-btn').classList.remove('connected');
-    if(isLive)stopLive();
-  };
-}
-function disconnectServer(){clearInterval(wsKeepaliveInt);if(ws){ws.close();ws=null;}serverConnected=false;}
-function toggleLive(){if(!camStream){initCam().then(()=>setTimeout(goLive,600));return;}if(!isLive)goLive();else stopLive();}
-function goLive(){
-  const rtmpUrl=document.getElementById('rtmp-url').value.trim();
-  const rtmpKey=document.getElementById('rtmp-key').value.trim();
-  if(!rtmpUrl||!rtmpKey){setStatus('err','⚠ Falta URL o Stream Key');return;}
-  if(!serverConnected){setStatus('err','⚠ Conecta el servidor primero');return;}
-  const bitrateVal=document.getElementById('vid-bitrate').value;
-  const resText=document.querySelector('.res-btn.active')?.textContent||'720p';
-  const resolution=resText==='2K'?'2560x1440':resText==='720p'?'1280x720':'1920x1080';
-  const profile = NET_PROFILES[currentNetProfile] || NET_PROFILES.lte;
-  const audioBitrate = profile.audioBitrate || '96k';
-  ws.send(JSON.stringify({type:'config',rtmpUrl,streamKey:rtmpKey,bitrate:Math.round(parseFloat(bitrateVal)*1000)+'k',resolution,audioBitrate}));
-  const mimeType=getSupportedMime();
-  replayMime = mimeType;
-  resetReplayBuffer();
-  mediaRecorder=new MediaRecorder(camStream,{mimeType,videoBitsPerSecond:parseFloat(bitrateVal)*1000000});
-  mediaRecorder.ondataavailable=(e)=>{
-    if(e.data&&e.data.size>0){
-      if(ws&&ws.readyState===WebSocket.OPEN) ws.send(e.data);
-      onReplayChunk(e.data);
-    }
-  };
-  mediaRecorder.start(currentChunkMs);isLive=true;liveSecs=0;
-  document.getElementById('live-badge').classList.add('active');
-  ['go-live-btn','ls-live-btn'].forEach(id=>{const b=document.getElementById(id);b.textContent='⏹ DETENER';b.classList.add('live');});
-  timerInt=setInterval(()=>{liveSecs++;const h=String(Math.floor(liveSecs/3600)).padStart(2,'0'),m=String(Math.floor((liveSecs%3600)/60)).padStart(2,'0'),s=String(liveSecs%60).padStart(2,'0'),t=`${h}:${m}:${s}`;document.getElementById('timer').textContent=t;document.getElementById('ls-timer').textContent=t;},1000);
-}
-function stopLive(){
-  if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();
-  if(ws&&serverConnected)ws.send(JSON.stringify({type:'stop'}));
-  isLive=false;clearInterval(timerInt);document.getElementById('live-badge').classList.remove('active');
-  ['go-live-btn','ls-live-btn'].forEach(id=>{const b=document.getElementById(id);b.textContent='IR EN VIVO';b.classList.remove('live');});
-  document.getElementById('timer').textContent='00:00:00';document.getElementById('ls-timer').textContent='00:00:00';
-  resetReplayBuffer();
-  setStatus('ok','Cámara lista');
-}
-function getSupportedMime(){return['video/webm;codecs=h264,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>MediaRecorder.isTypeSupported(t))||'video/webm';}
-function setRes(el,res){document.querySelectorAll('.res-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.getElementById('res-badge').textContent=res==='2560x1440'?'2K':res==='1920x1080'?'1080p':'720p';if(camStream)initCam();autoSave();}
-function setWB(el){
-  document.querySelectorAll('.wb-btn').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  const temp=document.getElementById('wb-temp')?.value;
-  applyWBMode(el.textContent, temp?parseInt(temp):null);
-  autoSave();
-}
-function setZoom(z){
-  document.querySelectorAll('.zoom-dot').forEach(d=>d.classList.toggle('active',parseFloat(d.dataset.zoom)===z));
-  document.getElementById('zoom-label').textContent=z.toFixed(1)+'x';document.getElementById('zoom-slider').value=z;document.getElementById('zoom-val').textContent=z.toFixed(1)+'x';
-  if(isLandscape){document.getElementById('ls-zoom').value=z;document.getElementById('ls-zoom-v').textContent=z.toFixed(1)+'x';}
-  applyZoom(z);
-}
-function updateZoomSlider(v){const z=parseFloat(parseFloat(v).toFixed(1));document.getElementById('zoom-val').textContent=z.toFixed(1)+'x';document.getElementById('zoom-label').textContent=z.toFixed(1)+'x';applyZoom(z);autoSave();}
-function applyZoom(z){
-  if(!camStream)return;const track=camStream.getVideoTracks()[0];
-  if(track?.getCapabilities?.()?.zoom){const caps=track.getCapabilities();track.applyConstraints({advanced:[{zoom:Math.min(caps.zoom.max,Math.max(caps.zoom.min,z))}]});}
-  else{video.style.transform=`scale(${z})`;video.style.transformOrigin='center center';}
-}
-function updateVal(id,val,prefix,suffix){
-  document.getElementById(id).textContent=(prefix||'')+val+(suffix||'');
-  if(id==='iso-val') applyISO(parseFloat(val));
-  if(id==='wb-val'){const wbMode=document.querySelector('.wb-btn.active')?.textContent||'Auto';if(wbMode!=='Auto')applyWBMode(wbMode,parseInt(val));}
-  autoSave();
-}
-function updateBitrate(v){const mbps=parseFloat(parseFloat(v).toFixed(1));document.getElementById('br-val').textContent=mbps+' Mbps';document.getElementById('bitrate-badge').textContent=mbps+' Mbps';if(isLandscape){document.getElementById('ls-br').value=v;document.getElementById('ls-br-v').textContent=mbps+'M';}autoSave();}
-function setStatus(type,text){document.getElementById('status-dot').className='status-dot'+(type?' '+type:'');document.getElementById('status-text').textContent=text;document.getElementById('ls-status-dot').className='status-dot'+(type?' '+type:'');document.getElementById('ls-status-text').textContent=text;}
-function setSrvStatus(type,text){document.getElementById('srv-dot').className='status-dot'+(type?' '+type:'');document.getElementById('srv-text').textContent=text;}
-function prefillUrl(url){document.getElementById('new-overlay-url').value=url;document.getElementById('new-overlay-url').focus();}
-function addOverlay(){const input=document.getElementById('new-overlay-url');const url=input.value.trim();if(!url)return;let label=url;try{label=new URL(url).hostname;}catch(e){}overlays.push({id:++ovId,url,label,visible:true,opacity:100});input.value='';renderOverlays();autoSave();}
-function removeOverlay(id){overlays=overlays.filter(o=>o.id!==id);renderOverlays();autoSave();}
-function toggleOverlay(id){const ov=overlays.find(o=>o.id===id);if(ov){ov.visible=!ov.visible;renderOverlays();autoSave();}}
-function setOverlayOpacity(id,val){const ov=overlays.find(o=>o.id===id);if(ov){ov.opacity=parseInt(val);const iframe=document.getElementById('iframe-'+id);if(iframe)iframe.style.opacity=ov.opacity/100;const el=document.getElementById('op-val-'+id);if(el)el.textContent=ov.opacity+'%';}}
-function renderOverlays(){
-  const list=document.getElementById('overlay-list'),empty=document.getElementById('overlay-empty');
-  const active=overlays.filter(o=>o.visible).length;
-  document.getElementById('ov-count-label').textContent=overlays.length?`${active}/${overlays.length} activos`:'';
-  const hud=document.getElementById('ov-hud');hud.textContent=active?`${active} overlay${active!==1?'s':''}`:'';hud.style.display=active?'inline':'none';
-  overlayContainer.innerHTML='';
-  overlays.filter(o=>o.visible).forEach(ov=>{const iframe=document.createElement('iframe');iframe.id='iframe-'+ov.id;iframe.className='overlay-iframe';iframe.src=ov.url;iframe.style.opacity=ov.opacity/100;iframe.setAttribute('allowtransparency','true');iframe.setAttribute('frameborder','0');overlayContainer.appendChild(iframe);});
-  if(!overlays.length){empty.style.display='block';list.innerHTML='';list.appendChild(empty);return;}
-  empty.style.display='none';list.innerHTML='';
-  overlays.forEach(ov=>{const item=document.createElement('div');item.className='overlay-item'+(ov.visible?' active-ov':'');item.innerHTML=`<div style="width:36px;height:24px;border-radius:4px;background:#222;border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🖼</div><div class="overlay-info"><div class="overlay-name">${ov.label}</div><div class="overlay-url-short">${ov.url.length>36?ov.url.slice(0,36)+'…':ov.url}</div><div class="ov-op-row"><input type="range" min="0" max="100" step="1" value="${ov.opacity}" oninput="setOverlayOpacity(${ov.id},this.value)"><span class="ov-op-val" id="op-val-${ov.id}">${ov.opacity}%</span></div></div><button class="overlay-toggle${ov.visible?' on':''}" onclick="toggleOverlay(${ov.id})"></button><button class="overlay-del" onclick="removeOverlay(${ov.id})">✕</button>`;list.appendChild(item);});
-}
-function getSettings(){return{serverUrl:document.getElementById('server-url').value,rtmpUrl:document.getElementById('rtmp-url').value,rtmpKey:document.getElementById('rtmp-key').value,bitrate:document.getElementById('vid-bitrate').value,iso:document.getElementById('iso').value,exp:document.getElementById('exp').value,zoom:document.getElementById('zoom-slider').value,wbTemp:document.getElementById('wb-temp').value,vol:document.getElementById('mic-vol').value,res:document.querySelector('.res-btn.active')?.textContent||'720p',wb:document.querySelector('.wb-btn.active')?.textContent||'Auto',netProfile:currentNetProfile,overlays:overlays.map(o=>({url:o.url,label:o.label,visible:o.visible,opacity:o.opacity})),savedAt:new Date().toISOString()};}
-function applySettings(s){
-  if(!s)return;
-  if(s.serverUrl)document.getElementById('server-url').value=s.serverUrl;
-  if(s.rtmpUrl)document.getElementById('rtmp-url').value=s.rtmpUrl;
-  if(s.rtmpKey)document.getElementById('rtmp-key').value=s.rtmpKey;
-  if(s.bitrate){document.getElementById('vid-bitrate').value=s.bitrate;updateBitrate(s.bitrate);}
-  if(s.iso){document.getElementById('iso').value=s.iso;document.getElementById('iso-val').textContent='ISO '+s.iso;}
-  if(s.exp){document.getElementById('exp').value=s.exp;document.getElementById('exp-val').textContent='EV '+parseFloat(s.exp).toFixed(1);}
-  if(s.zoom){document.getElementById('zoom-slider').value=s.zoom;document.getElementById('zoom-val').textContent=parseFloat(s.zoom).toFixed(1)+'x';}
-  if(s.wbTemp){document.getElementById('wb-temp').value=s.wbTemp;document.getElementById('wb-val').textContent=s.wbTemp+'K';}
-  if(s.vol){document.getElementById('mic-vol').value=s.vol;document.getElementById('vol-val').textContent=s.vol+'%';}
-  if(s.res){document.querySelectorAll('.res-btn').forEach(b=>b.classList.toggle('active',b.textContent===s.res));document.getElementById('res-badge').textContent=s.res;}
-  if(s.wb){document.querySelectorAll('.wb-btn').forEach(b=>b.classList.toggle('active',b.textContent===s.wb));}
-  if(s.netProfile && NET_PROFILES[s.netProfile]){currentNetProfile=s.netProfile;currentChunkMs=NET_PROFILES[s.netProfile].chunkMs;}
-  if(s.overlays&&s.overlays.length){overlays=s.overlays.map(o=>({...o,id:++ovId}));renderOverlays();}
-}
-function autoSave(){clearTimeout(autoSaveTimer);autoSaveTimer=setTimeout(()=>{try{localStorage.setItem('camerafi_settings',JSON.stringify(getSettings()));showSaveMsg('✓ Guardado automáticamente',false);}catch(e){}},800);}
-function saveSettings(){try{localStorage.setItem('camerafi_settings',JSON.stringify(getSettings()));showSaveMsg('✓ Ajustes guardados en el navegador',false);}catch(e){showSaveMsg('✕ Error al guardar',true);}}
-function exportJSON(){const blob=new Blob([JSON.stringify(getSettings(),null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='camerafi-config-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);showSaveMsg('✓ Exportado como JSON',false);}
-function importJSON(input){const file=input.files[0];if(!file)return;const reader=new FileReader();reader.onload=(e)=>{try{const s=JSON.parse(e.target.result);applySettings(s);localStorage.setItem('camerafi_settings',JSON.stringify(s));showSaveMsg('✓ Ajustes importados correctamente',false);}catch(err){showSaveMsg('✕ JSON inválido',true);}};reader.readAsText(file);input.value='';}
-function clearSettings(){if(!confirm('¿Borrar todos los ajustes guardados?'))return;localStorage.removeItem('camerafi_settings');showSaveMsg('✓ Ajustes borrados',false);}
-function showSaveMsg(text,isError){const el=document.getElementById('save-msg');el.textContent=text;el.className=isError?'error':'';el.style.display='block';setTimeout(()=>{el.style.display='none';},2500);}
-
-loadSavedSettings();
-initNetProfileUI();
-initCam();
-checkOrientation();
-const NET_PROFILES = {
-  wifi: {
-    label: '📶 WiFi — Conexión estable, ancho de banda limitado',
-    res: '720p', resVal: '1280x720',
-    bitrate: 2.5, audioBitrate: '96k',
-    chunkMs: 500, info: '720p · 2.5 Mbps · chunks 500ms — Ideal para WiFi hogareño de 3-8 Mbps'
-  },
-  lte: {
-    label: '📡 LTE 4G — Móvil con buena cobertura',
-    res: '1080p', resVal: '1920x1080',
-    bitrate: 4.5, audioBitrate: '128k',
-    chunkMs: 500, info: '1080p · 4.5 Mbps · chunks 500ms — Requiere mínimo 8 Mbps de subida LTE'
-  },
-  custom: {
-    label: '⚙️ Custom — Ajuste manual completo',
-    res: null, resVal: null,
-    bitrate: null, audioBitrate: null,
-    chunkMs: 500, info: 'Ajusta resolución y bitrate manualmente con los controles'
-  }
-};
-
-let currentNetProfile = 'lte';
-let currentChunkMs = 500;
-
-function setNetProfile(profile) {
-  currentNetProfile = profile;
-  const p = NET_PROFILES[profile];
-
-  // Update button styles
-  document.querySelectorAll('.net-btn').forEach(b => {
-    b.style.border = '1px solid #333';
-    b.style.background = '#1a1a1a';
-    b.style.color = '#888';
-  });
-  const activeBtn = document.getElementById('net-' + profile);
-  if (activeBtn) {
-    activeBtn.style.border = '1px solid #4a6fa5';
-    activeBtn.style.background = '#1a1a2e';
-    activeBtn.style.color = '#7aa7e0';
-  }
-
-  // Update info label
-  const info = document.getElementById('net-profile-info');
-  if (info) info.textContent = p.info;
-
-  // Apply resolution if not custom
-  if (p.res && p.resVal) {
-    document.querySelectorAll('.res-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.res-btn').forEach(b => {
-      if (b.textContent === p.res) b.classList.add('active');
-    });
-    document.getElementById('res-badge').textContent = p.res;
-    if (camStream) initCam();
-  }
-
-  // Apply bitrate if not custom
-  if (p.bitrate) {
-    document.getElementById('vid-bitrate').value = p.bitrate;
-    updateBitrate(p.bitrate);
-  }
-
-  // Show/hide bitrate slider (custom = show, others = show but note it's set)
-  const bitrateRow = document.getElementById('bitrate-row');
-  if (bitrateRow) {
-    bitrateRow.style.opacity = profile === 'custom' ? '1' : '0.5';
-    bitrateRow.style.pointerEvents = profile === 'custom' ? 'auto' : 'none';
-  }
-
-  currentChunkMs = p.chunkMs;
-  autoSave();
-}
-
-// Init profile UI on load
-function initNetProfileUI() {
-  const saved = currentNetProfile || 'lte';
-  // Don't apply changes, just update UI to match saved state
-  const p = NET_PROFILES[saved];
-  document.querySelectorAll('.net-btn').forEach(b => {
-    b.style.border = '1px solid #333';
-    b.style.background = '#1a1a1a';
-    b.style.color = '#888';
-  });
-  const activeBtn = document.getElementById('net-' + saved);
-  if (activeBtn) {
-    activeBtn.style.border = '1px solid #4a6fa5';
-    activeBtn.style.background = '#1a1a2e';
-    activeBtn.style.color = '#7aa7e0';
-  }
-  const info = document.getElementById('net-profile-info');
-  if (info) info.textContent = p.info;
-  const bitrateRow = document.getElementById('bitrate-row');
-  if (bitrateRow) {
-    bitrateRow.style.opacity = saved === 'custom' ? '1' : '0.5';
-    bitrateRow.style.pointerEvents = saved === 'custom' ? 'auto' : 'none';
-  }
-}
-const REPLAY_SECS = 10;
-const CHUNK_MS = 250;
-const MAX_CHUNKS = (REPLAY_SECS * 1000) / CHUNK_MS; // 40 chunks
-let replayChunks = [];
-let replayHeaderChunk = null;
-let replayMime = 'video/webm';
-let isReplaying = false;
-let replayProgressInt = null;
-let replayPlayUrl = null;
-let bufferFull = false;
-let replaySpeed = 1; // x0.5 / x1 / x2
-
-// Speed buttons in replay HUD — built dynamically
-function setReplaySpeed(s) {
-  replaySpeed = s;
-  const rv = document.getElementById('replay-video');
-  if (rv) rv.playbackRate = s;
-  document.querySelectorAll('.rspd-btn').forEach(b => {
-    b.style.background = parseFloat(b.dataset.s) === s ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)';
-    b.style.color = parseFloat(b.dataset.s) === s ? '#22c55e' : '#fff';
-  });
-}
-
-function onReplayChunk(blob) {
-  if (!replayHeaderChunk) { replayHeaderChunk = blob; return; }
-  replayChunks.push(blob);
-  if (replayChunks.length > MAX_CHUNKS) replayChunks.shift();
-  const pct = Math.min(replayChunks.length / MAX_CHUNKS, 1);
-  const offset = 35 - (pct * 35);
-  ['buf-prog','ls-buf-prog'].forEach(id => {
-    const p = document.getElementById(id); if(p) p.style.strokeDashoffset = offset;
-  });
-  if (!bufferFull && replayChunks.length >= MAX_CHUNKS) {
-    bufferFull = true;
-    ['replay-btn','ls-replay-btn'].forEach(id => {
-      const b = document.getElementById(id); if(!b) return;
-      b.disabled = false; b.classList.add('ready'); b.title = 'Ver últimos 10s';
-    });
-  }
-}
-
-function triggerReplay() {
-  if (isReplaying) { stopReplay(); return; }
-  if (!replayChunks.length || !replayHeaderChunk) return;
-
-  isReplaying = true;
-  ['replay-btn','ls-replay-btn'].forEach(id => {
-    const b = document.getElementById(id); if(!b) return;
-    b.classList.remove('ready'); b.classList.add('playing');
-  });
-
-  const webmBlob = new Blob([replayHeaderChunk, ...replayChunks], { type: replayMime });
-
-  // Show overlay immediately with loading state
-  document.getElementById('replay-overlay').style.display = 'block';
-  document.getElementById('replay-progress-fill').style.width = '0%';
-  document.getElementById('replay-counter').textContent = '⟳';
-
-  // Get server base URL from the WS URL configured
-  const wsUrl = document.getElementById('server-url').value.trim();
-  let serverBase = '';
-  if (wsUrl) {
-    try {
-      const u = new URL(wsUrl.replace(/^ws/, 'http'));
-      serverBase = `${u.protocol}//${u.host}`;
-    } catch(e) {}
-  }
-
-  if (!serverBase) {
-    // Fallback: play WebM directly if no server configured
-    playReplayBlob(webmBlob, replayMime);
-    return;
-  }
-
-  // Send WebM to server → get MP4 back (background conversion)
-  webmBlob.arrayBuffer().then(ab => {
-    return fetch(`${serverBase}/replay-convert`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'video/webm' },
-      body: ab
-    });
-  }).then(r => {
-    if (!r.ok) throw new Error('Conversion failed ' + r.status);
-    return r.blob();
-  }).then(mp4Blob => {
-    // Save MP4 to device in background
-    const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-    const dlUrl = URL.createObjectURL(mp4Blob);
-    const a = document.createElement('a');
-    a.href = dlUrl; a.download = `replay-${ts}.mp4`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(dlUrl), 10000);
-    // Play the MP4 on screen
-    playReplayBlob(mp4Blob, 'video/mp4');
-  }).catch(err => {
-    console.warn('[REPLAY] Server convert failed, playing WebM locally:', err.message);
-    // Fallback: play WebM on screen anyway
-    playReplayBlob(webmBlob, replayMime);
-  });
-}
-
-function playReplayBlob(blob, mime) {
-  if (replayPlayUrl) URL.revokeObjectURL(replayPlayUrl);
-  replayPlayUrl = URL.createObjectURL(blob);
-  const rv = document.getElementById('replay-video');
-  rv.src = replayPlayUrl;
-  rv.playbackRate = replaySpeed;
-
-  rv.onloadedmetadata = () => {
-    rv.currentTime = 0;
-    rv.playbackRate = replaySpeed;
-    rv.play().catch(() => {});
-
-    let elapsed = 0;
-    const total = REPLAY_SECS / replaySpeed;
-    clearInterval(replayProgressInt);
-    replayProgressInt = setInterval(() => {
-      elapsed += 0.1;
-      const pct = Math.min((elapsed / total) * 100, 100);
-      document.getElementById('replay-progress-fill').style.width = pct + '%';
-      const remSec = Math.max(0, Math.ceil((total - elapsed) * replaySpeed));
-      document.getElementById('replay-counter').textContent = remSec + 's';
-      if (elapsed >= total) stopReplay();
-    }, 100);
-  };
-  rv.onerror = () => stopReplay();
-  rv.onended = () => stopReplay();
-}
-
-function stopReplay() {
-  isReplaying = false;
-  clearInterval(replayProgressInt);
-  const rv = document.getElementById('replay-video');
-  if (rv) { rv.pause(); rv.removeAttribute('src'); rv.load(); }
-  if (replayPlayUrl) { URL.revokeObjectURL(replayPlayUrl); replayPlayUrl = null; }
-  document.getElementById('replay-overlay').style.display = 'none';
-  document.getElementById('replay-progress-fill').style.width = '0%';
-  document.getElementById('replay-counter').textContent = REPLAY_SECS + 's';
-  ['replay-btn','ls-replay-btn'].forEach(id => {
-    const b = document.getElementById(id); if(!b) return;
-    b.classList.remove('playing');
-    if (bufferFull) b.classList.add('ready');
-  });
-}
-
-function resetReplayBuffer() {
-  replayChunks = []; replayHeaderChunk = null; bufferFull = false;
-  if (replayPlayUrl) { URL.revokeObjectURL(replayPlayUrl); replayPlayUrl = null; }
-  ['buf-prog','ls-buf-prog'].forEach(id => {
-    const p = document.getElementById(id); if(p) p.style.strokeDashoffset = '35';
-  });
-  ['replay-btn','ls-replay-btn'].forEach(id => {
-    const b = document.getElementById(id); if(!b) return;
-    b.disabled = true; b.classList.remove('ready','playing');
-  });
-  stopReplay();
-}
-
-// ── PWA: Service Worker + Install Prompt ──
-let deferredInstallPrompt = null;
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('[PWA] SW registrado:', reg.scope))
-      .catch(err => console.warn('[PWA] SW error:', err));
-  });
-}
-
-// Capture the browser's native install prompt
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredInstallPrompt = e;
-  // Only show banner if not already installed
-  if (!window.matchMedia('(display-mode: fullscreen)').matches &&
-      !window.matchMedia('(display-mode: standalone)').matches) {
-    const banner = document.getElementById('pwa-banner');
-    if (banner) banner.classList.add('show');
-  }
-});
-
-// Hide banner if app gets installed
-window.addEventListener('appinstalled', () => {
-  const banner = document.getElementById('pwa-banner');
-  if (banner) banner.classList.remove('show');
-  deferredInstallPrompt = null;
-  console.log('[PWA] App instalada correctamente');
-});
-
-function installPWA() {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  deferredInstallPrompt.userChoice.then(choice => {
-    if (choice.outcome === 'accepted') {
-      console.log('[PWA] Usuario aceptó instalar');
-    }
-    deferredInstallPrompt = null;
-    const banner = document.getElementById('pwa-banner');
-    if (banner) banner.classList.remove('show');
-  });
-}
-
-function dismissPWABanner() {
-  const banner = document.getElementById('pwa-banner');
-  if (banner) banner.classList.remove('show');
-  // Don't show again for this session
-  sessionStorage.setItem('pwa-dismissed', '1');
-}
-</script>
 
 <!-- PWA Install Banner -->
 <div id="pwa-banner">
@@ -1067,5 +384,546 @@ function dismissPWABanner() {
   <button id="pwa-dismiss-btn" onclick="dismissPWABanner()">✕</button>
 </div>
 
+<script>
+// ── STATE ──
+let camStream = null, isLive = false, liveSecs = 0, timerInt = null;
+let audioCtx = null, analyser = null;
+let overlays = [], ovId = 0;
+let ws = null, mediaRecorder = null, serverConnected = false;
+let wsKeepaliveInt = null;
+let isLandscape = false, lsControlsOpen = false, autoSaveTimer = null;
+let imageCapture = null, camCapabilities = {};
+let currentNetProfile = 'lte', currentChunkMs = 500;
+
+const video = document.getElementById('video');
+const overlayContainer = document.getElementById('overlay-container');
+
+// ── NETWORK PROFILES ──
+const NET_PROFILES = {
+  wifi:   { res:'720p',  resVal:'1280x720',  bitrate:2.5, audioBitrate:'96k',  info:'720p · 2.5 Mbps — Ideal para WiFi 3-8 Mbps' },
+  lte:    { res:'1080p', resVal:'1920x1080', bitrate:4.5, audioBitrate:'128k', info:'1080p · 4.5 Mbps — Requiere LTE con buena señal' },
+  custom: { res:null,    resVal:null,        bitrate:null,audioBitrate:null,   info:'Ajusta resolución y bitrate manualmente' }
+};
+
+function setNetProfile(profile) {
+  currentNetProfile = profile;
+  const p = NET_PROFILES[profile];
+  document.querySelectorAll('.net-btn').forEach(b => b.classList.remove('active-net'));
+  const btn = document.getElementById('net-' + profile);
+  if (btn) btn.classList.add('active-net');
+  const info = document.getElementById('net-profile-info');
+  if (info) info.textContent = p.info;
+  if (p.res) {
+    document.querySelectorAll('.res-btn').forEach(b => b.classList.toggle('active', b.textContent === p.res));
+    document.getElementById('res-badge').textContent = p.res;
+    if (camStream) initCam();
+  }
+  if (p.bitrate) { document.getElementById('vid-bitrate').value = p.bitrate; updateBitrate(p.bitrate); }
+  const br = document.getElementById('bitrate-row');
+  if (br) { br.style.opacity = profile === 'custom' ? '1' : '0.6'; br.style.pointerEvents = profile === 'custom' ? 'auto' : 'none'; }
+  autoSave();
+}
+
+function initNetProfileUI() {
+  const p = NET_PROFILES[currentNetProfile] || NET_PROFILES.lte;
+  document.querySelectorAll('.net-btn').forEach(b => b.classList.remove('active-net'));
+  const btn = document.getElementById('net-' + currentNetProfile);
+  if (btn) btn.classList.add('active-net');
+  const info = document.getElementById('net-profile-info');
+  if (info) info.textContent = p.info;
+  const br = document.getElementById('bitrate-row');
+  if (br) { br.style.opacity = currentNetProfile === 'custom' ? '1' : '0.6'; br.style.pointerEvents = currentNetProfile === 'custom' ? 'auto' : 'none'; }
+}
+
+// ── ORIENTATION ──
+function checkOrientation() {
+  const land = window.innerWidth > window.innerHeight;
+  if (land === isLandscape) return;
+  isLandscape = land;
+  if (land) {
+    document.body.classList.add('landscape');
+    document.getElementById('orient-badge').textContent = '↔';
+    syncLsSliders(); syncLsStatus();
+  } else {
+    document.body.classList.remove('landscape');
+    document.getElementById('orient-badge').textContent = '↕';
+    if (lsControlsOpen) closeLsControls();
+  }
+}
+function toggleLsControls() {
+  lsControlsOpen = !lsControlsOpen;
+  document.getElementById('ls-controls').classList.toggle('open', lsControlsOpen);
+  document.getElementById('ls-settings-btn').classList.toggle('open', lsControlsOpen);
+  document.getElementById('tap-hint').style.display = lsControlsOpen ? 'none' : 'flex';
+}
+function closeLsControls() {
+  lsControlsOpen = false;
+  document.getElementById('ls-controls').classList.remove('open');
+  document.getElementById('ls-settings-btn').classList.remove('open');
+  document.getElementById('tap-hint').style.display = 'flex';
+}
+function syncLsSliders() {
+  document.getElementById('ls-iso').value = document.getElementById('iso').value;
+  document.getElementById('ls-iso-v').textContent = document.getElementById('iso').value;
+  document.getElementById('ls-exp').value = document.getElementById('exp').value;
+  document.getElementById('ls-exp-v').textContent = parseFloat(document.getElementById('exp').value).toFixed(1);
+  document.getElementById('ls-zoom').value = document.getElementById('zoom-slider').value;
+  document.getElementById('ls-zoom-v').textContent = parseFloat(document.getElementById('zoom-slider').value).toFixed(1) + 'x';
+  document.getElementById('ls-vol').value = document.getElementById('mic-vol').value;
+  document.getElementById('ls-vol-v').textContent = document.getElementById('mic-vol').value + '%';
+  document.getElementById('ls-br').value = document.getElementById('vid-bitrate').value;
+  document.getElementById('ls-br-v').textContent = parseFloat(document.getElementById('vid-bitrate').value).toFixed(1) + 'M';
+}
+function syncLsStatus() {
+  document.getElementById('ls-status-dot').className = document.getElementById('status-dot').className;
+  document.getElementById('ls-status-text').textContent = document.getElementById('status-text').textContent;
+}
+function mirrorSlider(mainId, valId, val, prefix, suffix) {
+  const m = document.getElementById(mainId); if (m) m.value = val;
+  const v = document.getElementById(valId); if (v) v.textContent = (prefix||'') + val + (suffix||'');
+  autoSave();
+}
+function mirrorExp(v) {
+  document.getElementById('exp').value = v;
+  document.getElementById('exp-val').textContent = 'EV ' + parseFloat(v).toFixed(1);
+  document.getElementById('ls-exp-v').textContent = parseFloat(v).toFixed(1);
+  applyExp(parseFloat(v)); autoSave();
+}
+function mirrorZoom(v) {
+  const z = parseFloat(parseFloat(v).toFixed(1));
+  document.getElementById('zoom-slider').value = z;
+  document.getElementById('zoom-val').textContent = z.toFixed(1) + 'x';
+  document.getElementById('zoom-label').textContent = z.toFixed(1) + 'x';
+  document.getElementById('ls-zoom-v').textContent = z.toFixed(1) + 'x';
+  applyZoom(z);
+}
+function mirrorBitrate(v) {
+  const mbps = parseFloat(parseFloat(v).toFixed(1));
+  document.getElementById('vid-bitrate').value = v;
+  document.getElementById('br-val').textContent = mbps + ' Mbps';
+  document.getElementById('bitrate-badge').textContent = mbps + ' Mbps';
+  document.getElementById('ls-br-v').textContent = mbps + 'M';
+  autoSave();
+}
+window.addEventListener('resize', checkOrientation);
+window.addEventListener('orientationchange', () => setTimeout(checkOrientation, 200));
+
+// ── CAMERA ──
+async function initCam() {
+  const resText = document.querySelector('.res-btn.active')?.textContent || '720p';
+  const dims = resText === '2K' ? [2560,1440] : resText === '720p' ? [1280,720] : [1920,1080];
+  try {
+    if (camStream) camStream.getTracks().forEach(t => t.stop());
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: dims[0] }, height: { ideal: dims[1] }, frameRate: { ideal: 30 } },
+      audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
+    });
+    video.srcObject = camStream;
+    document.getElementById('cam-btn').textContent = '🔄';
+    setupAudio();
+    setStatus('ok', 'Cámara lista');
+    initImageCapture();
+  } catch(e) {
+    console.error('Camera error:', e);
+    setStatus('err', 'Sin permisos de cámara');
+  }
+}
+
+function toggleCam() {
+  if (!camStream) { initCam(); return; }
+  camStream.getTracks().forEach(t => t.stop());
+  camStream = null; video.srcObject = null;
+  document.getElementById('cam-btn').textContent = '⏻';
+  setStatus('', 'Sin cámara');
+}
+
+function setupAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (analyser) analyser.disconnect();
+    analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
+    const at = camStream.getAudioTracks()[0]; if (!at) return;
+    audioCtx.createMediaStreamSource(new MediaStream([at])).connect(analyser);
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    (function tick() {
+      if (!analyser) return;
+      analyser.getByteFrequencyData(buf);
+      const avg = buf.reduce((a,b) => a+b, 0) / buf.length;
+      document.getElementById('vu-fill').style.width = Math.min(100, Math.round((avg/128)*180)) + '%';
+      requestAnimationFrame(tick);
+    })();
+  } catch(e) {}
+}
+
+// ── IMAGE CAPTURE API ──
+async function initImageCapture() {
+  try {
+    const track = camStream?.getVideoTracks()[0];
+    if (!track) return;
+    if (typeof ImageCapture !== 'undefined') {
+      imageCapture = new ImageCapture(track);
+    }
+    camCapabilities = track.getCapabilities ? track.getCapabilities() : {};
+    updateCapabilityUI();
+    applyAllCamConstraints();
+  } catch(e) {
+    imageCapture = null; camCapabilities = {};
+    updateCapabilityUI();
+  }
+}
+
+function updateCapabilityUI() {
+  const caps = camCapabilities;
+  const isoEl = document.getElementById('iso');
+  const isoLabel = document.getElementById('cam-iso-support');
+  if (isoEl && caps.iso?.min !== undefined) {
+    isoEl.min = caps.iso.min; isoEl.max = caps.iso.max;
+    isoEl.step = Math.max(1, Math.round((caps.iso.max - caps.iso.min) / 50));
+    if (isoLabel) isoLabel.textContent = '✓';
+  } else { if (isoLabel) isoLabel.textContent = '~'; }
+
+  const expEl = document.getElementById('exp');
+  const expLabel = document.getElementById('cam-exp-support');
+  if (expEl && caps.exposureCompensation?.min !== undefined) {
+    expEl.min = caps.exposureCompensation.min; expEl.max = caps.exposureCompensation.max;
+    expEl.step = caps.exposureCompensation.step || 0.1;
+    if (expLabel) expLabel.textContent = '✓';
+  } else { if (expLabel) expLabel.textContent = '~'; }
+
+  const wbEl = document.getElementById('wb-temp');
+  const wbLabel = document.getElementById('cam-wb-support');
+  if (wbEl && caps.colorTemperature?.min !== undefined) {
+    wbEl.min = caps.colorTemperature.min; wbEl.max = caps.colorTemperature.max;
+    wbEl.step = caps.colorTemperature.step || 100;
+    if (wbLabel) wbLabel.textContent = '✓';
+  } else { if (wbLabel) wbLabel.textContent = '~'; }
+
+  const zoomEl = document.getElementById('zoom-slider');
+  if (zoomEl && caps.zoom?.min !== undefined) {
+    zoomEl.min = caps.zoom.min; zoomEl.max = caps.zoom.max;
+    zoomEl.step = caps.zoom.step || 0.1;
+  }
+}
+
+async function applyCamConstraint(c) {
+  const track = camStream?.getVideoTracks()[0];
+  if (!track) return;
+  try { await track.applyConstraints({ advanced: [c] }); } catch(e) {}
+}
+
+function applyAllCamConstraints() {
+  applyISO(parseFloat(document.getElementById('iso')?.value || 100));
+  applyExp(parseFloat(document.getElementById('exp')?.value || 0));
+  const wbMode = document.querySelector('.wb-btn.active')?.textContent || 'Auto';
+  applyWBMode(wbMode, parseInt(document.getElementById('wb-temp')?.value || 5600));
+}
+
+async function applyISO(val) {
+  if (camCapabilities.iso) await applyCamConstraint({ iso: Math.min(camCapabilities.iso.max, Math.max(camCapabilities.iso.min, val)), exposureMode: 'manual' });
+}
+async function applyExp(val) {
+  if (camCapabilities.exposureCompensation) await applyCamConstraint({ exposureCompensation: Math.min(camCapabilities.exposureCompensation.max, Math.max(camCapabilities.exposureCompensation.min, parseFloat(val))) });
+}
+async function applyWBMode(modeName, tempVal) {
+  const tempMap = { 'Auto':null,'Luz día':5600,'Nublado':6500,'Tungsteno':3200,'Fluoresc.':4000,'Flash':5500 };
+  const apiMode = modeName === 'Auto' ? 'continuous' : 'manual';
+  const presetTemp = tempMap[modeName] ?? tempVal;
+  const c = {};
+  if (camCapabilities.whiteBalanceMode?.includes(apiMode)) c.whiteBalanceMode = apiMode;
+  if (apiMode === 'manual' && camCapabilities.colorTemperature && presetTemp) {
+    c.colorTemperature = Math.min(camCapabilities.colorTemperature.max, Math.max(camCapabilities.colorTemperature.min, presetTemp));
+    const wbEl = document.getElementById('wb-temp');
+    if (wbEl) { wbEl.value = c.colorTemperature; document.getElementById('wb-val').textContent = c.colorTemperature + 'K'; }
+  }
+  if (Object.keys(c).length) await applyCamConstraint(c);
+}
+
+// ── SERVER / WEBSOCKET ──
+function toggleServerConnection() { if (serverConnected) disconnectServer(); else connectServer(); }
+
+function connectServer() {
+  const url = document.getElementById('server-url').value.trim();
+  if (!url) { setSrvStatus('err', 'Ingresa la URL'); return; }
+  setSrvStatus('', 'Conectando...');
+  ws = new WebSocket(url);
+  ws.binaryType = 'arraybuffer';
+  ws.onopen = () => {
+    serverConnected = true;
+    setSrvStatus('ok', 'Servidor conectado ✓');
+    document.getElementById('connect-btn').textContent = 'Desconectar';
+    document.getElementById('connect-btn').classList.add('connected');
+    clearInterval(wsKeepaliveInt);
+    wsKeepaliveInt = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
+    }, 20000);
+  };
+  ws.onmessage = (e) => {
+    try {
+      const m = JSON.parse(e.data);
+      if (m.type === 'started') setStatus('live', '● En vivo → Restream');
+      if (m.type === 'stopped') setStatus('ok', 'Cámara lista');
+      if (m.type === 'error') setStatus('err', '⚠ ' + m.message);
+    } catch(e) {}
+  };
+  ws.onerror = () => setSrvStatus('err', 'Error de conexión');
+  ws.onclose = () => {
+    serverConnected = false;
+    clearInterval(wsKeepaliveInt);
+    setSrvStatus('', 'Desconectado');
+    document.getElementById('connect-btn').textContent = 'Conectar servidor';
+    document.getElementById('connect-btn').classList.remove('connected');
+    if (isLive) stopLive();
+  };
+}
+
+function disconnectServer() {
+  clearInterval(wsKeepaliveInt);
+  if (ws) { ws.close(); ws = null; }
+  serverConnected = false;
+}
+
+// ── LIVE STREAM ──
+function toggleLive() {
+  if (!camStream) { initCam().then(() => setTimeout(goLive, 600)); return; }
+  if (!isLive) goLive(); else stopLive();
+}
+
+function goLive() {
+  const rtmpUrl = document.getElementById('rtmp-url').value.trim();
+  const rtmpKey = document.getElementById('rtmp-key').value.trim();
+  if (!rtmpUrl || !rtmpKey) { setStatus('err', '⚠ Falta URL o Stream Key'); return; }
+  if (!serverConnected) { setStatus('err', '⚠ Conecta el servidor primero'); return; }
+
+  const bitrateVal = document.getElementById('vid-bitrate').value;
+  const resText = document.querySelector('.res-btn.active')?.textContent || '720p';
+  const resolution = resText === '2K' ? '2560x1440' : resText === '720p' ? '1280x720' : '1920x1080';
+  const profile = NET_PROFILES[currentNetProfile] || NET_PROFILES.lte;
+  const audioBitrate = profile.audioBitrate || '96k';
+
+  ws.send(JSON.stringify({ type: 'config', rtmpUrl, streamKey: rtmpKey, bitrate: Math.round(parseFloat(bitrateVal) * 1000) + 'k', resolution, audioBitrate }));
+
+  const mimeType = getSupportedMime();
+  mediaRecorder = new MediaRecorder(camStream, { mimeType, videoBitsPerSecond: parseFloat(bitrateVal) * 1000000 });
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) ws.send(e.data);
+  };
+  mediaRecorder.start(currentChunkMs);
+  isLive = true; liveSecs = 0;
+  document.getElementById('live-badge').classList.add('active');
+  ['go-live-btn','ls-live-btn'].forEach(id => { const b = document.getElementById(id); b.textContent = '⏹ DETENER'; b.classList.add('live'); });
+  timerInt = setInterval(() => {
+    liveSecs++;
+    const h = String(Math.floor(liveSecs/3600)).padStart(2,'0');
+    const m = String(Math.floor((liveSecs%3600)/60)).padStart(2,'0');
+    const s = String(liveSecs%60).padStart(2,'0');
+    const t = `${h}:${m}:${s}`;
+    document.getElementById('timer').textContent = t;
+    document.getElementById('ls-timer').textContent = t;
+  }, 1000);
+}
+
+function stopLive() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  if (ws && serverConnected) ws.send(JSON.stringify({ type: 'stop' }));
+  isLive = false; clearInterval(timerInt);
+  document.getElementById('live-badge').classList.remove('active');
+  ['go-live-btn','ls-live-btn'].forEach(id => { const b = document.getElementById(id); b.textContent = 'IR EN VIVO'; b.classList.remove('live'); });
+  document.getElementById('timer').textContent = '00:00:00';
+  document.getElementById('ls-timer').textContent = '00:00:00';
+  setStatus('ok', 'Cámara lista');
+}
+
+function getSupportedMime() {
+  return ['video/webm;codecs=h264,opus','video/webm;codecs=vp8,opus','video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+}
+
+// ── CONTROLS ──
+function setRes(el, res) {
+  document.querySelectorAll('.res-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('res-badge').textContent = res === '2560x1440' ? '2K' : res === '1920x1080' ? '1080p' : '720p';
+  if (camStream) initCam();
+  autoSave();
+}
+
+function setWB(el) {
+  document.querySelectorAll('.wb-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const temp = document.getElementById('wb-temp')?.value;
+  applyWBMode(el.textContent, temp ? parseInt(temp) : null);
+  autoSave();
+}
+
+function setZoom(z) {
+  document.querySelectorAll('.zoom-dot').forEach(d => d.classList.toggle('active', parseFloat(d.dataset.zoom) === z));
+  document.getElementById('zoom-label').textContent = z.toFixed(1) + 'x';
+  document.getElementById('zoom-slider').value = z;
+  document.getElementById('zoom-val').textContent = z.toFixed(1) + 'x';
+  if (isLandscape) { document.getElementById('ls-zoom').value = z; document.getElementById('ls-zoom-v').textContent = z.toFixed(1) + 'x'; }
+  applyZoom(z);
+}
+
+function updateZoomSlider(v) {
+  const z = parseFloat(parseFloat(v).toFixed(1));
+  document.getElementById('zoom-val').textContent = z.toFixed(1) + 'x';
+  document.getElementById('zoom-label').textContent = z.toFixed(1) + 'x';
+  applyZoom(z); autoSave();
+}
+
+function applyZoom(z) {
+  if (!camStream) return;
+  const track = camStream.getVideoTracks()[0];
+  if (track?.getCapabilities?.()?.zoom) {
+    const caps = track.getCapabilities();
+    track.applyConstraints({ advanced: [{ zoom: Math.min(caps.zoom.max, Math.max(caps.zoom.min, z)) }] });
+  } else {
+    video.style.transform = `scale(${z})`;
+    video.style.transformOrigin = 'center center';
+  }
+}
+
+function updateVal(id, val, prefix, suffix) {
+  document.getElementById(id).textContent = (prefix||'') + val + (suffix||'');
+  if (id === 'iso-val') applyISO(parseFloat(val));
+  if (id === 'wb-val') { const wbMode = document.querySelector('.wb-btn.active')?.textContent || 'Auto'; if (wbMode !== 'Auto') applyWBMode(wbMode, parseInt(val)); }
+  autoSave();
+}
+
+function updateBitrate(v) {
+  const mbps = parseFloat(parseFloat(v).toFixed(1));
+  document.getElementById('br-val').textContent = mbps + ' Mbps';
+  document.getElementById('bitrate-badge').textContent = mbps + ' Mbps';
+  if (isLandscape) { document.getElementById('ls-br').value = v; document.getElementById('ls-br-v').textContent = mbps + 'M'; }
+  autoSave();
+}
+
+function setStatus(type, text) {
+  document.getElementById('status-dot').className = 'status-dot' + (type ? ' '+type : '');
+  document.getElementById('status-text').textContent = text;
+  document.getElementById('ls-status-dot').className = 'status-dot' + (type ? ' '+type : '');
+  document.getElementById('ls-status-text').textContent = text;
+}
+
+function setSrvStatus(type, text) {
+  document.getElementById('srv-dot').className = 'status-dot' + (type ? ' '+type : '');
+  document.getElementById('srv-text').textContent = text;
+}
+
+// ── OVERLAYS ──
+function prefillUrl(url) { document.getElementById('new-overlay-url').value = url; document.getElementById('new-overlay-url').focus(); }
+
+function addOverlay() {
+  const input = document.getElementById('new-overlay-url');
+  const url = input.value.trim(); if (!url) return;
+  let label = url; try { label = new URL(url).hostname; } catch(e) {}
+  overlays.push({ id: ++ovId, url, label, visible: true, opacity: 100 });
+  input.value = ''; renderOverlays(); autoSave();
+}
+
+function removeOverlay(id) { overlays = overlays.filter(o => o.id !== id); renderOverlays(); autoSave(); }
+function toggleOverlay(id) { const ov = overlays.find(o => o.id === id); if (ov) { ov.visible = !ov.visible; renderOverlays(); autoSave(); } }
+function setOverlayOpacity(id, val) {
+  const ov = overlays.find(o => o.id === id);
+  if (ov) { ov.opacity = parseInt(val); const iframe = document.getElementById('iframe-'+id); if (iframe) iframe.style.opacity = ov.opacity/100; const el = document.getElementById('op-val-'+id); if (el) el.textContent = ov.opacity+'%'; }
+}
+
+function renderOverlays() {
+  const list = document.getElementById('overlay-list'), empty = document.getElementById('overlay-empty');
+  const active = overlays.filter(o => o.visible).length;
+  document.getElementById('ov-count-label').textContent = overlays.length ? `${active}/${overlays.length} activos` : '';
+  const hud = document.getElementById('ov-hud');
+  hud.textContent = active ? `${active} overlay${active !== 1 ? 's' : ''}` : '';
+  hud.style.display = active ? 'inline' : 'none';
+  overlayContainer.innerHTML = '';
+  overlays.filter(o => o.visible).forEach(ov => {
+    const iframe = document.createElement('iframe');
+    iframe.id = 'iframe-'+ov.id; iframe.className = 'overlay-iframe'; iframe.src = ov.url;
+    iframe.style.opacity = ov.opacity/100; iframe.setAttribute('allowtransparency','true'); iframe.setAttribute('frameborder','0');
+    overlayContainer.appendChild(iframe);
+  });
+  if (!overlays.length) { empty.style.display = 'block'; list.innerHTML = ''; list.appendChild(empty); return; }
+  empty.style.display = 'none'; list.innerHTML = '';
+  overlays.forEach(ov => {
+    const item = document.createElement('div');
+    item.className = 'overlay-item' + (ov.visible ? ' active-ov' : '');
+    item.innerHTML = `<div style="width:36px;height:24px;border-radius:4px;background:#222;border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🖼</div><div class="overlay-info"><div class="overlay-name">${ov.label}</div><div class="overlay-url-short">${ov.url.length>36?ov.url.slice(0,36)+'…':ov.url}</div><div class="ov-op-row"><input type="range" min="0" max="100" step="1" value="${ov.opacity}" oninput="setOverlayOpacity(${ov.id},this.value)"><span class="ov-op-val" id="op-val-${ov.id}">${ov.opacity}%</span></div></div><button class="overlay-toggle${ov.visible?' on':''}" onclick="toggleOverlay(${ov.id})"></button><button class="overlay-del" onclick="removeOverlay(${ov.id})">✕</button>`;
+    list.appendChild(item);
+  });
+}
+
+// ── SETTINGS ──
+function getSettings() {
+  return {
+    serverUrl: document.getElementById('server-url').value,
+    rtmpUrl: document.getElementById('rtmp-url').value,
+    rtmpKey: document.getElementById('rtmp-key').value,
+    bitrate: document.getElementById('vid-bitrate').value,
+    iso: document.getElementById('iso').value,
+    exp: document.getElementById('exp').value,
+    zoom: document.getElementById('zoom-slider').value,
+    wbTemp: document.getElementById('wb-temp').value,
+    vol: document.getElementById('mic-vol').value,
+    res: document.querySelector('.res-btn.active')?.textContent || '720p',
+    wb: document.querySelector('.wb-btn.active')?.textContent || 'Auto',
+    netProfile: currentNetProfile,
+    overlays: overlays.map(o => ({ url: o.url, label: o.label, visible: o.visible, opacity: o.opacity })),
+    savedAt: new Date().toISOString()
+  };
+}
+
+function applySettings(s) {
+  if (!s) return;
+  if (s.serverUrl) document.getElementById('server-url').value = s.serverUrl;
+  if (s.rtmpUrl) document.getElementById('rtmp-url').value = s.rtmpUrl;
+  if (s.rtmpKey) document.getElementById('rtmp-key').value = s.rtmpKey;
+  if (s.bitrate) { document.getElementById('vid-bitrate').value = s.bitrate; updateBitrate(s.bitrate); }
+  if (s.iso) { document.getElementById('iso').value = s.iso; document.getElementById('iso-val').textContent = 'ISO ' + s.iso; }
+  if (s.exp) { document.getElementById('exp').value = s.exp; document.getElementById('exp-val').textContent = 'EV ' + parseFloat(s.exp).toFixed(1); }
+  if (s.zoom) { document.getElementById('zoom-slider').value = s.zoom; document.getElementById('zoom-val').textContent = parseFloat(s.zoom).toFixed(1) + 'x'; }
+  if (s.wbTemp) { document.getElementById('wb-temp').value = s.wbTemp; document.getElementById('wb-val').textContent = s.wbTemp + 'K'; }
+  if (s.vol) { document.getElementById('mic-vol').value = s.vol; document.getElementById('vol-val').textContent = s.vol + '%'; }
+  if (s.res) { document.querySelectorAll('.res-btn').forEach(b => b.classList.toggle('active', b.textContent === s.res)); document.getElementById('res-badge').textContent = s.res; }
+  if (s.wb) { document.querySelectorAll('.wb-btn').forEach(b => b.classList.toggle('active', b.textContent === s.wb)); }
+  if (s.netProfile && NET_PROFILES[s.netProfile]) { currentNetProfile = s.netProfile; currentChunkMs = 500; }
+  if (s.overlays && s.overlays.length) { overlays = s.overlays.map(o => ({ ...o, id: ++ovId })); renderOverlays(); }
+}
+
+function autoSave() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    try { localStorage.setItem('camerafi_settings', JSON.stringify(getSettings())); showSaveMsg('✓ Guardado automáticamente', false); } catch(e) {}
+  }, 800);
+}
+function saveSettings() { try { localStorage.setItem('camerafi_settings', JSON.stringify(getSettings())); showSaveMsg('✓ Guardado', false); } catch(e) { showSaveMsg('✕ Error', true); } }
+function exportJSON() { const blob = new Blob([JSON.stringify(getSettings(),null,2)],{type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'camerafi-config-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(url); showSaveMsg('✓ Exportado', false); }
+function importJSON(input) { const file = input.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { const s = JSON.parse(e.target.result); applySettings(s); localStorage.setItem('camerafi_settings', JSON.stringify(s)); showSaveMsg('✓ Importado', false); } catch(err) { showSaveMsg('✕ JSON inválido', true); } }; reader.readAsText(file); input.value = ''; }
+function clearSettings() { if (!confirm('¿Borrar todos los ajustes?')) return; localStorage.removeItem('camerafi_settings'); showSaveMsg('✓ Borrado', false); }
+function showSaveMsg(text, isError) { const el = document.getElementById('save-msg'); el.textContent = text; el.className = isError ? 'error' : ''; el.style.display = 'block'; setTimeout(() => { el.style.display = 'none'; }, 2500); }
+function loadSavedSettings() { try { const raw = localStorage.getItem('camerafi_settings'); if (raw) applySettings(JSON.parse(raw)); } catch(e) {} }
+
+// ── PWA ──
+let deferredInstallPrompt = null;
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(e => console.warn('[SW]', e));
+  });
+}
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); deferredInstallPrompt = e;
+  if (!window.matchMedia('(display-mode: fullscreen)').matches && !window.matchMedia('(display-mode: standalone)').matches) {
+    document.getElementById('pwa-banner').classList.add('show');
+  }
+});
+window.addEventListener('appinstalled', () => { document.getElementById('pwa-banner').classList.remove('show'); deferredInstallPrompt = null; });
+function installPWA() { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); deferredInstallPrompt.userChoice.then(() => { deferredInstallPrompt = null; document.getElementById('pwa-banner').classList.remove('show'); }); }
+function dismissPWABanner() { document.getElementById('pwa-banner').classList.remove('show'); }
+
+// ── INIT ──
+loadSavedSettings();
+initNetProfileUI();
+checkOrientation();
+// Delay camera init slightly to ensure DOM is ready
+setTimeout(() => initCam(), 100);
+</script>
 </body>
 </html>
