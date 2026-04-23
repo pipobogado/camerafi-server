@@ -31,8 +31,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Replay conversion endpoint: POST /replay-convert
-  // Receives raw WebM body, returns converted MP4
+  // Replay conversion endpoint
   if (req.method === 'POST' && req.url === '/replay-convert') {
     const chunks = [];
     req.on('data', chunk => chunks.push(chunk));
@@ -59,14 +58,40 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Serve index.html
-  const filePath = path.join(__dirname, 'public', 'index.html');
+  // Serve static PWA files with correct MIME types
+  const mimeTypes = {
+    '.html': 'text/html',
+    '.json': 'application/json',
+    '.js':   'application/javascript',
+    '.png':  'image/png',
+    '.ico':  'image/x-icon',
+    '.css':  'text/css'
+  };
+
+  // Map URL to file path
+  let urlPath = req.url.split('?')[0]; // strip query string
+  if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
+  const ext = path.extname(urlPath);
+  const mime = mimeTypes[ext] || 'text/plain';
+  const filePath = path.join(__dirname, 'public', urlPath);
+
   if (fs.existsSync(filePath)) {
-    res.writeHead(200, { 'Content-Type': 'text/html' });
+    // Service worker must be served with no-cache for updates to work
+    const cacheHeader = urlPath === '/sw.js'
+      ? 'no-cache, no-store, must-revalidate'
+      : 'public, max-age=3600';
+    res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheHeader });
     fs.createReadStream(filePath).pipe(res);
   } else {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('CameraFi Server OK');
+    // Fallback: serve index.html for SPA routing
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      fs.createReadStream(indexPath).pipe(res);
+    } else {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('CameraFi Server OK');
+    }
   }
 });
 
@@ -148,18 +173,29 @@ wss.on('connection', (ws, req) => {
         }
 
         if (msg.type === 'config') {
-          const { rtmpUrl, streamKey, bitrate = '6000k', resolution = '1920x1080' } = msg;
+          const { rtmpUrl, streamKey, bitrate = '2500k', resolution = '1280x720', audioBitrate = '96k' } = msg;
           const destination = `${rtmpUrl}/${streamKey}`;
-          console.log(`[STREAM] Iniciando → ${destination} | ${resolution} | ${bitrate}`);
+          const bitrateNum = parseInt(bitrate);
+          console.log(`[STREAM] Iniciando → ${destination} | ${resolution} | ${bitrate} | audio:${audioBitrate}`);
 
           ffmpegProcess = spawn('ffmpeg', [
-            '-re', '-i', 'pipe:0',
-            '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency',
-            '-b:v', bitrate, '-maxrate', bitrate,
-            '-bufsize', String(parseInt(bitrate) * 2) + 'k',
+            '-fflags', '+nobuffer+genpts',
+            '-analyzeduration', '0',
+            '-probesize', '32',
+            '-i', 'pipe:0',
+            '-c:v', 'libx264',
+            '-preset', 'superfast',
+            '-tune', 'zerolatency',
+            '-b:v', bitrate,
+            '-maxrate', bitrate,
+            '-bufsize', String(bitrateNum * 4) + 'k',
             '-vf', `scale=${resolution}`,
-            '-g', '60',
-            '-c:a', 'aac', '-b:a', '128k', '-ar', '44100',
+            '-g', '48',
+            '-keyint_min', '48',
+            '-sc_threshold', '0',
+            '-c:a', 'aac',
+            '-b:a', audioBitrate,
+            '-ar', '44100',
             '-f', 'flv', destination
           ]);
 

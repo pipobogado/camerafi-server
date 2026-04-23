@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CameraFi">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <title>CameraFi Web</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -146,6 +153,13 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
 .ls-cl { font-size: 10px; color: #777; min-width: 30px; }
 .ls-cv { font-size: 10px; color: #aaa; min-width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
 .ls-cr input[type=range] { flex: 1; }
+/* PWA Install Banner */
+#pwa-banner { display:none; position:fixed; bottom:80px; left:50%; transform:translateX(-50%); width:calc(100% - 28px); max-width:400px; background:#1a1a2e; border:1px solid #4a6fa5; border-radius:12px; padding:12px 14px; z-index:200; flex-direction:row; align-items:center; gap:10px; box-shadow:0 4px 20px rgba(0,0,0,0.5); }
+#pwa-banner.show { display:flex; }
+#pwa-banner-text strong { font-size:12px; color:#7aa7e0; display:block; }
+#pwa-banner-text span { font-size:10px; color:#666; }
+#pwa-install-btn { padding:8px 14px; border-radius:8px; border:none; background:#4a6fa5; color:#fff; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
+#pwa-dismiss-btn { width:28px; height:28px; border-radius:6px; border:1px solid #333; background:transparent; color:#555; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -156,11 +170,11 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
     <div id="hud-top">
       <div style="display:flex;gap:6px;align-items:center;">
         <span class="badge" id="live-badge">● LIVE</span>
-        <span class="badge" id="res-badge">1080p</span>
+        <span class="badge" id="res-badge">720p</span>
       </div>
       <div style="display:flex;gap:6px;align-items:center;">
         <span id="ov-hud" style="display:none;font-size:10px;background:rgba(107,70,193,0.7);color:#c4b5fd;padding:3px 7px;border-radius:4px;font-weight:600;"></span>
-        <span id="bitrate-badge" class="badge">6 Mbps</span>
+        <span id="bitrate-badge" class="badge">2.5 Mbps</span>
         <span id="orient-badge">↕</span>
       </div>
     </div>
@@ -195,9 +209,9 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
     <div class="section">
       <div class="section-header">Resolución</div>
       <div class="res-group">
-        <div class="res-btn active" onclick="setRes(this,'1920x1080')">1080p</div>
+        <div class="res-btn" onclick="setRes(this,'1920x1080')">1080p</div>
         <div class="res-btn" onclick="setRes(this,'2560x1440')">2K</div>
-        <div class="res-btn" onclick="setRes(this,'1280x720')">720p</div>
+        <div class="res-btn active" onclick="setRes(this,'1280x720')">720p</div>
       </div>
     </div>
     <div class="section">
@@ -219,10 +233,27 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
       <div class="ctrl-row"><span class="ctrl-label">Temp <span id="cam-wb-support" style="font-size:9px;color:#555;"></span></span><input type="range" id="wb-temp" min="2500" max="8000" step="100" value="5600" oninput="updateVal('wb-val',this.value,'','K')"><span class="ctrl-val" id="wb-val">5600K</span></div>
     </div>
     <div class="section">
-      <div class="section-header">Audio</div>
+      <div class="section-header">Red y Calidad</div>
+      <!-- Network profile selector -->
+      <div style="padding:8px 14px 4px;">
+        <div style="font-size:10px;color:#555;margin-bottom:6px;letter-spacing:0.05em;">PERFIL DE RED</div>
+        <div style="display:flex;gap:6px;">
+          <button class="net-btn" id="net-wifi" onclick="setNetProfile('wifi')" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#888;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;">
+            <div style="font-size:16px;margin-bottom:2px;">📶</div>WiFi
+          </button>
+          <button class="net-btn active-net" id="net-lte" onclick="setNetProfile('lte')" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid #4a6fa5;background:#1a1a2e;color:#7aa7e0;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;">
+            <div style="font-size:16px;margin-bottom:2px;">📡</div>LTE 4G
+          </button>
+          <button class="net-btn" id="net-custom" onclick="setNetProfile('custom')" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#888;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;">
+            <div style="font-size:16px;margin-bottom:2px;">⚙️</div>Custom
+          </button>
+        </div>
+        <div id="net-profile-info" style="margin-top:6px;padding:6px 8px;border-radius:6px;background:#1a1a2e;border:1px solid #2a3a4a;font-size:10px;color:#5a7a9a;line-height:1.5;"></div>
+      </div>
+      <div class="section-header" style="margin-top:4px;">Audio</div>
       <div class="ctrl-row"><span class="ctrl-label">Mic</span><div id="vu-meter"><div id="vu-fill"></div></div><span class="ctrl-val">ON</span></div>
       <div class="ctrl-row"><span class="ctrl-label">Vol</span><input type="range" id="mic-vol" min="0" max="100" value="80" oninput="updateVal('vol-val',this.value,'','%')"><span class="ctrl-val" id="vol-val">80%</span></div>
-      <div class="ctrl-row"><span class="ctrl-label">Bitrate</span><input type="range" id="vid-bitrate" min="1" max="12" step="0.5" value="6" oninput="updateBitrate(this.value)"><span class="ctrl-val" id="br-val">6 Mbps</span></div>
+      <div class="ctrl-row" id="bitrate-row"><span class="ctrl-label">Bitrate</span><input type="range" id="vid-bitrate" min="1" max="12" step="0.5" value="2.5" oninput="updateBitrate(this.value)"><span class="ctrl-val" id="br-val">2.5 Mbps</span></div>
     </div>
     <div class="section">
       <div class="section-header"><span>Overlays</span><span id="ov-count-label" style="color:#6b46c1;font-size:10px;"></span></div>
@@ -281,14 +312,14 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
       <div class="ls-section">
         <div class="ls-sh">Audio / Video</div>
         <div class="ls-cr"><span class="ls-cl">Vol</span><input type="range" id="ls-vol" min="0" max="100" value="80" oninput="mirrorSlider('mic-vol','vol-val',this.value,'','%')"><span class="ls-cv" id="ls-vol-v">80%</span></div>
-        <div class="ls-cr"><span class="ls-cl">Bps</span><input type="range" id="ls-br" min="1" max="12" step="0.5" value="6" oninput="mirrorBitrate(this.value)"><span class="ls-cv" id="ls-br-v">6M</span></div>
+        <div class="ls-cr"><span class="ls-cl">Bps</span><input type="range" id="ls-br" min="1" max="12" step="0.5" value="2.5" oninput="mirrorBitrate(this.value)"><span class="ls-cv" id="ls-br-v">2.5M</span></div>
       </div>
       <div class="ls-section">
         <div class="ls-sh">Resolución</div>
         <div style="display:flex;gap:4px;padding:4px 12px 6px;">
-          <div class="res-btn active" style="font-size:10px;padding:5px 2px;" onclick="setRes(this,'1920x1080')">1080p</div>
+          <div class="res-btn" style="font-size:10px;padding:5px 2px;" onclick="setRes(this,'1920x1080')">1080p</div>
           <div class="res-btn" style="font-size:10px;padding:5px 2px;" onclick="setRes(this,'2560x1440')">2K</div>
-          <div class="res-btn" style="font-size:10px;padding:5px 2px;" onclick="setRes(this,'1280x720')">720p</div>
+          <div class="res-btn active" style="font-size:10px;padding:5px 2px;" onclick="setRes(this,'1280x720')">720p</div>
         </div>
       </div>
       <div class="ls-section">
@@ -616,9 +647,11 @@ function goLive(){
   if(!rtmpUrl||!rtmpKey){setStatus('err','⚠ Falta URL o Stream Key');return;}
   if(!serverConnected){setStatus('err','⚠ Conecta el servidor primero');return;}
   const bitrateVal=document.getElementById('vid-bitrate').value;
-  const resText=document.querySelector('.res-btn.active')?.textContent||'1080p';
+  const resText=document.querySelector('.res-btn.active')?.textContent||'720p';
   const resolution=resText==='2K'?'2560x1440':resText==='720p'?'1280x720':'1920x1080';
-  ws.send(JSON.stringify({type:'config',rtmpUrl,streamKey:rtmpKey,bitrate:Math.round(parseFloat(bitrateVal)*1000)+'k',resolution}));
+  const profile = NET_PROFILES[currentNetProfile] || NET_PROFILES.lte;
+  const audioBitrate = profile.audioBitrate || '96k';
+  ws.send(JSON.stringify({type:'config',rtmpUrl,streamKey:rtmpKey,bitrate:Math.round(parseFloat(bitrateVal)*1000)+'k',resolution,audioBitrate}));
   const mimeType=getSupportedMime();
   replayMime = mimeType;
   resetReplayBuffer();
@@ -629,7 +662,7 @@ function goLive(){
       onReplayChunk(e.data);
     }
   };
-  mediaRecorder.start(250);isLive=true;liveSecs=0;
+  mediaRecorder.start(currentChunkMs);isLive=true;liveSecs=0;
   document.getElementById('live-badge').classList.add('active');
   ['go-live-btn','ls-live-btn'].forEach(id=>{const b=document.getElementById(id);b.textContent='⏹ DETENER';b.classList.add('live');});
   timerInt=setInterval(()=>{liveSecs++;const h=String(Math.floor(liveSecs/3600)).padStart(2,'0'),m=String(Math.floor((liveSecs%3600)/60)).padStart(2,'0'),s=String(liveSecs%60).padStart(2,'0'),t=`${h}:${m}:${s}`;document.getElementById('timer').textContent=t;document.getElementById('ls-timer').textContent=t;},1000);
@@ -689,7 +722,7 @@ function renderOverlays(){
   empty.style.display='none';list.innerHTML='';
   overlays.forEach(ov=>{const item=document.createElement('div');item.className='overlay-item'+(ov.visible?' active-ov':'');item.innerHTML=`<div style="width:36px;height:24px;border-radius:4px;background:#222;border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🖼</div><div class="overlay-info"><div class="overlay-name">${ov.label}</div><div class="overlay-url-short">${ov.url.length>36?ov.url.slice(0,36)+'…':ov.url}</div><div class="ov-op-row"><input type="range" min="0" max="100" step="1" value="${ov.opacity}" oninput="setOverlayOpacity(${ov.id},this.value)"><span class="ov-op-val" id="op-val-${ov.id}">${ov.opacity}%</span></div></div><button class="overlay-toggle${ov.visible?' on':''}" onclick="toggleOverlay(${ov.id})"></button><button class="overlay-del" onclick="removeOverlay(${ov.id})">✕</button>`;list.appendChild(item);});
 }
-function getSettings(){return{serverUrl:document.getElementById('server-url').value,rtmpUrl:document.getElementById('rtmp-url').value,rtmpKey:document.getElementById('rtmp-key').value,bitrate:document.getElementById('vid-bitrate').value,iso:document.getElementById('iso').value,exp:document.getElementById('exp').value,zoom:document.getElementById('zoom-slider').value,wbTemp:document.getElementById('wb-temp').value,vol:document.getElementById('mic-vol').value,res:document.querySelector('.res-btn.active')?.textContent||'1080p',wb:document.querySelector('.wb-btn.active')?.textContent||'Auto',overlays:overlays.map(o=>({url:o.url,label:o.label,visible:o.visible,opacity:o.opacity})),savedAt:new Date().toISOString()};}
+function getSettings(){return{serverUrl:document.getElementById('server-url').value,rtmpUrl:document.getElementById('rtmp-url').value,rtmpKey:document.getElementById('rtmp-key').value,bitrate:document.getElementById('vid-bitrate').value,iso:document.getElementById('iso').value,exp:document.getElementById('exp').value,zoom:document.getElementById('zoom-slider').value,wbTemp:document.getElementById('wb-temp').value,vol:document.getElementById('mic-vol').value,res:document.querySelector('.res-btn.active')?.textContent||'720p',wb:document.querySelector('.wb-btn.active')?.textContent||'Auto',netProfile:currentNetProfile,overlays:overlays.map(o=>({url:o.url,label:o.label,visible:o.visible,opacity:o.opacity})),savedAt:new Date().toISOString()};}
 function applySettings(s){
   if(!s)return;
   if(s.serverUrl)document.getElementById('server-url').value=s.serverUrl;
@@ -703,6 +736,7 @@ function applySettings(s){
   if(s.vol){document.getElementById('mic-vol').value=s.vol;document.getElementById('vol-val').textContent=s.vol+'%';}
   if(s.res){document.querySelectorAll('.res-btn').forEach(b=>b.classList.toggle('active',b.textContent===s.res));document.getElementById('res-badge').textContent=s.res;}
   if(s.wb){document.querySelectorAll('.wb-btn').forEach(b=>b.classList.toggle('active',b.textContent===s.wb));}
+  if(s.netProfile && NET_PROFILES[s.netProfile]){currentNetProfile=s.netProfile;currentChunkMs=NET_PROFILES[s.netProfile].chunkMs;}
   if(s.overlays&&s.overlays.length){overlays=s.overlays.map(o=>({...o,id:++ovId}));renderOverlays();}
 }
 function autoSave(){clearTimeout(autoSaveTimer);autoSaveTimer=setTimeout(()=>{try{localStorage.setItem('camerafi_settings',JSON.stringify(getSettings()));showSaveMsg('✓ Guardado automáticamente',false);}catch(e){}},800);}
@@ -711,9 +745,107 @@ function exportJSON(){const blob=new Blob([JSON.stringify(getSettings(),null,2)]
 function importJSON(input){const file=input.files[0];if(!file)return;const reader=new FileReader();reader.onload=(e)=>{try{const s=JSON.parse(e.target.result);applySettings(s);localStorage.setItem('camerafi_settings',JSON.stringify(s));showSaveMsg('✓ Ajustes importados correctamente',false);}catch(err){showSaveMsg('✕ JSON inválido',true);}};reader.readAsText(file);input.value='';}
 function clearSettings(){if(!confirm('¿Borrar todos los ajustes guardados?'))return;localStorage.removeItem('camerafi_settings');showSaveMsg('✓ Ajustes borrados',false);}
 function showSaveMsg(text,isError){const el=document.getElementById('save-msg');el.textContent=text;el.className=isError?'error':'';el.style.display='block';setTimeout(()=>{el.style.display='none';},2500);}
-function loadSavedSettings(){try{const raw=localStorage.getItem('camerafi_settings');if(raw)applySettings(JSON.parse(raw));}catch(e){}}
 
-// ── REPLAY BUFFER (10s circular) ──
+loadSavedSettings();
+initNetProfileUI();
+initCam();
+checkOrientation();
+const NET_PROFILES = {
+  wifi: {
+    label: '📶 WiFi — Conexión estable, ancho de banda limitado',
+    res: '720p', resVal: '1280x720',
+    bitrate: 2.5, audioBitrate: '96k',
+    chunkMs: 500, info: '720p · 2.5 Mbps · chunks 500ms — Ideal para WiFi hogareño de 3-8 Mbps'
+  },
+  lte: {
+    label: '📡 LTE 4G — Móvil con buena cobertura',
+    res: '1080p', resVal: '1920x1080',
+    bitrate: 4.5, audioBitrate: '128k',
+    chunkMs: 500, info: '1080p · 4.5 Mbps · chunks 500ms — Requiere mínimo 8 Mbps de subida LTE'
+  },
+  custom: {
+    label: '⚙️ Custom — Ajuste manual completo',
+    res: null, resVal: null,
+    bitrate: null, audioBitrate: null,
+    chunkMs: 500, info: 'Ajusta resolución y bitrate manualmente con los controles'
+  }
+};
+
+let currentNetProfile = 'lte';
+let currentChunkMs = 500;
+
+function setNetProfile(profile) {
+  currentNetProfile = profile;
+  const p = NET_PROFILES[profile];
+
+  // Update button styles
+  document.querySelectorAll('.net-btn').forEach(b => {
+    b.style.border = '1px solid #333';
+    b.style.background = '#1a1a1a';
+    b.style.color = '#888';
+  });
+  const activeBtn = document.getElementById('net-' + profile);
+  if (activeBtn) {
+    activeBtn.style.border = '1px solid #4a6fa5';
+    activeBtn.style.background = '#1a1a2e';
+    activeBtn.style.color = '#7aa7e0';
+  }
+
+  // Update info label
+  const info = document.getElementById('net-profile-info');
+  if (info) info.textContent = p.info;
+
+  // Apply resolution if not custom
+  if (p.res && p.resVal) {
+    document.querySelectorAll('.res-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.res-btn').forEach(b => {
+      if (b.textContent === p.res) b.classList.add('active');
+    });
+    document.getElementById('res-badge').textContent = p.res;
+    if (camStream) initCam();
+  }
+
+  // Apply bitrate if not custom
+  if (p.bitrate) {
+    document.getElementById('vid-bitrate').value = p.bitrate;
+    updateBitrate(p.bitrate);
+  }
+
+  // Show/hide bitrate slider (custom = show, others = show but note it's set)
+  const bitrateRow = document.getElementById('bitrate-row');
+  if (bitrateRow) {
+    bitrateRow.style.opacity = profile === 'custom' ? '1' : '0.5';
+    bitrateRow.style.pointerEvents = profile === 'custom' ? 'auto' : 'none';
+  }
+
+  currentChunkMs = p.chunkMs;
+  autoSave();
+}
+
+// Init profile UI on load
+function initNetProfileUI() {
+  const saved = currentNetProfile || 'lte';
+  // Don't apply changes, just update UI to match saved state
+  const p = NET_PROFILES[saved];
+  document.querySelectorAll('.net-btn').forEach(b => {
+    b.style.border = '1px solid #333';
+    b.style.background = '#1a1a1a';
+    b.style.color = '#888';
+  });
+  const activeBtn = document.getElementById('net-' + saved);
+  if (activeBtn) {
+    activeBtn.style.border = '1px solid #4a6fa5';
+    activeBtn.style.background = '#1a1a2e';
+    activeBtn.style.color = '#7aa7e0';
+  }
+  const info = document.getElementById('net-profile-info');
+  if (info) info.textContent = p.info;
+  const bitrateRow = document.getElementById('bitrate-row');
+  if (bitrateRow) {
+    bitrateRow.style.opacity = saved === 'custom' ? '1' : '0.5';
+    bitrateRow.style.pointerEvents = saved === 'custom' ? 'auto' : 'none';
+  }
+}
 const REPLAY_SECS = 10;
 const CHUNK_MS = 250;
 const MAX_CHUNKS = (REPLAY_SECS * 1000) / CHUNK_MS; // 40 chunks
@@ -872,9 +1004,68 @@ function resetReplayBuffer() {
   stopReplay();
 }
 
-loadSavedSettings();
-initCam();
-checkOrientation();
+// ── PWA: Service Worker + Install Prompt ──
+let deferredInstallPrompt = null;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('[PWA] SW registrado:', reg.scope))
+      .catch(err => console.warn('[PWA] SW error:', err));
+  });
+}
+
+// Capture the browser's native install prompt
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // Only show banner if not already installed
+  if (!window.matchMedia('(display-mode: fullscreen)').matches &&
+      !window.matchMedia('(display-mode: standalone)').matches) {
+    const banner = document.getElementById('pwa-banner');
+    if (banner) banner.classList.add('show');
+  }
+});
+
+// Hide banner if app gets installed
+window.addEventListener('appinstalled', () => {
+  const banner = document.getElementById('pwa-banner');
+  if (banner) banner.classList.remove('show');
+  deferredInstallPrompt = null;
+  console.log('[PWA] App instalada correctamente');
+});
+
+function installPWA() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(choice => {
+    if (choice.outcome === 'accepted') {
+      console.log('[PWA] Usuario aceptó instalar');
+    }
+    deferredInstallPrompt = null;
+    const banner = document.getElementById('pwa-banner');
+    if (banner) banner.classList.remove('show');
+  });
+}
+
+function dismissPWABanner() {
+  const banner = document.getElementById('pwa-banner');
+  if (banner) banner.classList.remove('show');
+  // Don't show again for this session
+  sessionStorage.setItem('pwa-dismissed', '1');
+}
 </script>
+
+<!-- PWA Install Banner -->
+<div id="pwa-banner">
+  <div style="font-size:28px;flex-shrink:0;">📲</div>
+  <div id="pwa-banner-text" style="flex:1;">
+    <strong>Instalar CameraFi</strong>
+    <span>Acceso rápido desde tu pantalla de inicio</span>
+  </div>
+  <button id="pwa-install-btn" onclick="installPWA()">Instalar</button>
+  <button id="pwa-dismiss-btn" onclick="dismissPWABanner()">✕</button>
+</div>
+
 </body>
 </html>
