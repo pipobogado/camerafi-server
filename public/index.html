@@ -19,8 +19,28 @@ body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, sans-ser
 /* VIEWFINDER */
 #viewfinder { position: relative; width: 100%; aspect-ratio: 9/16; background: #111; overflow: hidden; flex-shrink: 0; max-height: 55vh; }
 #video { width: 100%; height: 100%; object-fit: cover; display: block; }
-#overlay-container { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
-.overlay-iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; background: transparent; pointer-events: none; }
+#overlay-container { position: absolute; inset: 0; pointer-events: all; z-index: 5; }
+
+/* Draggable overlay wrapper */
+.ov-wrapper { position: absolute; pointer-events: all; box-sizing: border-box; }
+.ov-wrapper iframe { width: 100%; height: 100%; border: none; background: transparent; display: block; pointer-events: none; }
+.ov-wrapper.selected { outline: 2px solid rgba(107,70,193,0.8); outline-offset: -1px; }
+.ov-wrapper.selected iframe { pointer-events: none; }
+
+/* Drag handle bar */
+.ov-handle { position: absolute; top: 0; left: 0; right: 18px; height: 18px; background: rgba(107,70,193,0.75); cursor: grab; display: none; align-items: center; padding: 0 5px; gap: 4px; z-index: 10; border-radius: 0 0 0 0; }
+.ov-wrapper.selected .ov-handle { display: flex; }
+.ov-handle-dots { font-size: 10px; color: rgba(255,255,255,0.8); letter-spacing: 1px; flex: 1; }
+.ov-handle-close { width: 14px; height: 14px; border-radius: 3px; border: none; background: rgba(229,62,62,0.8); color: #fff; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+/* Resize handle corner */
+.ov-resize { position: absolute; bottom: 0; right: 0; width: 18px; height: 18px; cursor: nwse-resize; display: none; align-items: flex-end; justify-content: flex-end; z-index: 10; }
+.ov-wrapper.selected .ov-resize { display: flex; }
+.ov-resize::after { content: ''; display: block; width: 10px; height: 10px; border-right: 2px solid rgba(107,70,193,0.9); border-bottom: 2px solid rgba(107,70,193,0.9); margin: 2px; }
+
+/* Tap-to-select hint */
+.ov-tap-hint { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; pointer-events: all; }
+.ov-wrapper.selected .ov-tap-hint { display: none; }
 
 /* LANDSCAPE */
 body.landscape { background: #000; overflow: hidden; }
@@ -49,6 +69,8 @@ body.landscape #ls-overlay { display: block; }
 #zoom-bar { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 10; }
 .zoom-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s; }
 .zoom-dot.active { background: #fff; transform: scale(1.3); }
+/* In landscape: move zoom bar to left side, vertical */
+body.landscape #zoom-bar { bottom: unset; left: 14px; top: 50%; transform: translateY(-50%); flex-direction: column; }
 
 /* LANDSCAPE BAR */
 #tap-hint { position: fixed; right: 12px; top: 50%; transform: translateY(-50%); z-index: 22; display: none; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
@@ -684,42 +706,96 @@ function disconnectServer() {
 
 // ── LIVE STREAM ──
 function toggleLive() {
-  if (!camStream) { initCam().then(() => setTimeout(goLive, 600)); return; }
+  if (!camStream) {
+    initCam().then(() => setTimeout(goLive, 800)).catch(() => setStatus('err', '⚠ No se pudo iniciar cámara'));
+    return;
+  }
   if (!isLive) goLive(); else stopLive();
 }
 
 function goLive() {
   const rtmpUrl = document.getElementById('rtmp-url').value.trim();
   const rtmpKey = document.getElementById('rtmp-key').value.trim();
-  if (!rtmpUrl || !rtmpKey) { setStatus('err', '⚠ Falta URL o Stream Key'); return; }
-  if (!serverConnected) { setStatus('err', '⚠ Conecta el servidor primero'); return; }
 
-  const bitrateVal = document.getElementById('vid-bitrate').value;
-  const resText = document.querySelector('.res-btn.active')?.textContent || '720p';
-  const resolution = resText === '2K' ? '2560x1440' : resText === '720p' ? '1280x720' : '1920x1080';
-  const profile = NET_PROFILES[currentNetProfile] || NET_PROFILES.lte;
-  const audioBitrate = profile.audioBitrate || '96k';
+  if (!rtmpUrl || !rtmpKey) {
+    setStatus('err', '⚠ Falta URL o Stream Key de Restream');
+    showSaveMsg('⚠ Configura la URL y Key de Restream primero', true);
+    return;
+  }
+  if (!serverConnected) {
+    setStatus('err', '⚠ Conecta el servidor primero');
+    showSaveMsg('⚠ Conecta el servidor Railway primero', true);
+    return;
+  }
+  if (!camStream) {
+    setStatus('err', '⚠ Cámara no disponible');
+    return;
+  }
 
-  ws.send(JSON.stringify({ type: 'config', rtmpUrl, streamKey: rtmpKey, bitrate: Math.round(parseFloat(bitrateVal) * 1000) + 'k', resolution, audioBitrate }));
+  try {
+    const bitrateVal = parseFloat(document.getElementById('vid-bitrate').value) || 2.5;
+    const resText = document.querySelector('.res-btn.active')?.textContent || '720p';
+    const resolution = resText === '2K' ? '2560x1440' : resText === '720p' ? '1280x720' : '1920x1080';
+    const profile = NET_PROFILES[currentNetProfile] || NET_PROFILES.lte;
+    const audioBitrate = profile.audioBitrate || '96k';
+    const chunkMs = (typeof currentChunkMs === 'number' && currentChunkMs > 0) ? currentChunkMs : 500;
 
-  const mimeType = getSupportedMime();
-  mediaRecorder = new MediaRecorder(camStream, { mimeType, videoBitsPerSecond: parseFloat(bitrateVal) * 1000000 });
-  mediaRecorder.ondataavailable = (e) => {
-    if (e.data && e.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) ws.send(e.data);
-  };
-  mediaRecorder.start(currentChunkMs);
-  isLive = true; liveSecs = 0;
-  document.getElementById('live-badge').classList.add('active');
-  ['go-live-btn','ls-live-btn'].forEach(id => { const b = document.getElementById(id); b.textContent = '⏹ DETENER'; b.classList.add('live'); });
-  timerInt = setInterval(() => {
-    liveSecs++;
-    const h = String(Math.floor(liveSecs/3600)).padStart(2,'0');
-    const m = String(Math.floor((liveSecs%3600)/60)).padStart(2,'0');
-    const s = String(liveSecs%60).padStart(2,'0');
-    const t = `${h}:${m}:${s}`;
-    document.getElementById('timer').textContent = t;
-    document.getElementById('ls-timer').textContent = t;
-  }, 1000);
+    console.log('[LIVE] Iniciando:', { resolution, bitrate: bitrateVal + ' Mbps', audioBitrate, chunkMs });
+
+    ws.send(JSON.stringify({
+      type: 'config',
+      rtmpUrl,
+      streamKey: rtmpKey,
+      bitrate: Math.round(bitrateVal * 1000) + 'k',
+      resolution,
+      audioBitrate
+    }));
+
+    const mimeType = getSupportedMime();
+    console.log('[LIVE] MIME:', mimeType);
+
+    mediaRecorder = new MediaRecorder(camStream, {
+      mimeType,
+      videoBitsPerSecond: bitrateVal * 1000000
+    });
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(e.data);
+      }
+    };
+
+    mediaRecorder.onerror = (e) => {
+      console.error('[MediaRecorder] Error:', e);
+      setStatus('err', '⚠ Error en grabación');
+      stopLive();
+    };
+
+    mediaRecorder.start(chunkMs);
+    console.log('[LIVE] MediaRecorder iniciado, estado:', mediaRecorder.state);
+
+    isLive = true; liveSecs = 0;
+    document.getElementById('live-badge').classList.add('active');
+    ['go-live-btn','ls-live-btn'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) { b.textContent = '⏹ DETENER'; b.classList.add('live'); }
+    });
+    timerInt = setInterval(() => {
+      liveSecs++;
+      const h = String(Math.floor(liveSecs/3600)).padStart(2,'0');
+      const m = String(Math.floor((liveSecs%3600)/60)).padStart(2,'0');
+      const s = String(liveSecs%60).padStart(2,'0');
+      const t = `${h}:${m}:${s}`;
+      document.getElementById('timer').textContent = t;
+      document.getElementById('ls-timer').textContent = t;
+    }, 1000);
+
+  } catch(err) {
+    console.error('[LIVE] Error al iniciar:', err);
+    setStatus('err', '⚠ Error: ' + err.message);
+    showSaveMsg('⚠ ' + err.message, true);
+    isLive = false;
+  }
 }
 
 function stopLive() {
@@ -812,19 +888,56 @@ function setSrvStatus(type, text) {
 // ── OVERLAYS ──
 function prefillUrl(url) { document.getElementById('new-overlay-url').value = url; document.getElementById('new-overlay-url').focus(); }
 
+// ── OVERLAY DRAG & RESIZE SYSTEM ──
+let selectedOverlayId = null;
+
 function addOverlay() {
   const input = document.getElementById('new-overlay-url');
   const url = input.value.trim(); if (!url) return;
   let label = url; try { label = new URL(url).hostname; } catch(e) {}
-  overlays.push({ id: ++ovId, url, label, visible: true, opacity: 100 });
+  // Default: 50% width, 30% height, top-left corner
+  overlays.push({ id: ++ovId, url, label, visible: true, opacity: 100,
+    x: 5, y: 5, w: 50, h: 30 }); // % of viewfinder
   input.value = ''; renderOverlays(); autoSave();
 }
 
-function removeOverlay(id) { overlays = overlays.filter(o => o.id !== id); renderOverlays(); autoSave(); }
-function toggleOverlay(id) { const ov = overlays.find(o => o.id === id); if (ov) { ov.visible = !ov.visible; renderOverlays(); autoSave(); } }
+function removeOverlay(id) {
+  overlays = overlays.filter(o => o.id !== id);
+  if (selectedOverlayId === id) selectedOverlayId = null;
+  renderOverlays(); autoSave();
+}
+
+function toggleOverlay(id) {
+  const ov = overlays.find(o => o.id === id);
+  if (ov) { ov.visible = !ov.visible; renderOverlays(); autoSave(); }
+}
+
 function setOverlayOpacity(id, val) {
   const ov = overlays.find(o => o.id === id);
-  if (ov) { ov.opacity = parseInt(val); const iframe = document.getElementById('iframe-'+id); if (iframe) iframe.style.opacity = ov.opacity/100; const el = document.getElementById('op-val-'+id); if (el) el.textContent = ov.opacity+'%'; }
+  if (ov) {
+    ov.opacity = parseInt(val);
+    const wrapper = document.getElementById('ovw-'+id);
+    if (wrapper) wrapper.style.opacity = ov.opacity/100;
+    const el = document.getElementById('op-val-'+id); if (el) el.textContent = ov.opacity+'%';
+  }
+}
+
+function selectOverlay(id) {
+  // Deselect previous
+  if (selectedOverlayId && selectedOverlayId !== id) {
+    const prev = document.getElementById('ovw-'+selectedOverlayId);
+    if (prev) prev.classList.remove('selected');
+  }
+  if (selectedOverlayId === id) {
+    // Tap again = deselect
+    const el = document.getElementById('ovw-'+id);
+    if (el) el.classList.remove('selected');
+    selectedOverlayId = null;
+    return;
+  }
+  selectedOverlayId = id;
+  const el = document.getElementById('ovw-'+id);
+  if (el) el.classList.add('selected');
 }
 
 function renderOverlays() {
@@ -834,20 +947,160 @@ function renderOverlays() {
   const hud = document.getElementById('ov-hud');
   hud.textContent = active ? `${active} overlay${active !== 1 ? 's' : ''}` : '';
   hud.style.display = active ? 'inline' : 'none';
+
+  // Render draggable wrappers in viewfinder
   overlayContainer.innerHTML = '';
   overlays.filter(o => o.visible).forEach(ov => {
+    const wrapper = document.createElement('div');
+    wrapper.id = 'ovw-'+ov.id;
+    wrapper.className = 'ov-wrapper' + (selectedOverlayId === ov.id ? ' selected' : '');
+    wrapper.style.cssText = `left:${ov.x}%;top:${ov.y}%;width:${ov.w}%;height:${ov.h}%;opacity:${ov.opacity/100};`;
+
+    // Drag handle
+    const handle = document.createElement('div');
+    handle.className = 'ov-handle';
+    handle.innerHTML = `<span class="ov-handle-dots">⠿⠿ ${ov.label}</span><button class="ov-handle-close" onclick="removeOverlay(${ov.id})">✕</button>`;
+
+    // iframe
     const iframe = document.createElement('iframe');
-    iframe.id = 'iframe-'+ov.id; iframe.className = 'overlay-iframe'; iframe.src = ov.url;
-    iframe.style.opacity = ov.opacity/100; iframe.setAttribute('allowtransparency','true'); iframe.setAttribute('frameborder','0');
-    overlayContainer.appendChild(iframe);
+    iframe.src = ov.url;
+    iframe.setAttribute('allowtransparency','true');
+    iframe.setAttribute('frameborder','0');
+    iframe.style.cssText = 'width:100%;height:100%;border:none;background:transparent;display:block;pointer-events:none;';
+
+    // Resize handle
+    const resizeHandle = document.createElement('div');
+    resizeHandle.className = 'ov-resize';
+
+    // Tap to select (on the iframe area when not selected)
+    const tapZone = document.createElement('div');
+    tapZone.className = 'ov-tap-hint';
+    tapZone.style.cssText = 'position:absolute;inset:0;pointer-events:all;';
+    tapZone.addEventListener('click', () => selectOverlay(ov.id));
+
+    wrapper.appendChild(handle);
+    wrapper.appendChild(iframe);
+    wrapper.appendChild(resizeHandle);
+    wrapper.appendChild(tapZone);
+    overlayContainer.appendChild(wrapper);
+
+    // Attach drag to handle
+    makeDraggable(handle, wrapper, ov);
+    // Attach resize to corner
+    makeResizable(resizeHandle, wrapper, ov);
   });
+
+  // Render settings list
   if (!overlays.length) { empty.style.display = 'block'; list.innerHTML = ''; list.appendChild(empty); return; }
   empty.style.display = 'none'; list.innerHTML = '';
   overlays.forEach(ov => {
     const item = document.createElement('div');
     item.className = 'overlay-item' + (ov.visible ? ' active-ov' : '');
-    item.innerHTML = `<div style="width:36px;height:24px;border-radius:4px;background:#222;border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🖼</div><div class="overlay-info"><div class="overlay-name">${ov.label}</div><div class="overlay-url-short">${ov.url.length>36?ov.url.slice(0,36)+'…':ov.url}</div><div class="ov-op-row"><input type="range" min="0" max="100" step="1" value="${ov.opacity}" oninput="setOverlayOpacity(${ov.id},this.value)"><span class="ov-op-val" id="op-val-${ov.id}">${ov.opacity}%</span></div></div><button class="overlay-toggle${ov.visible?' on':''}" onclick="toggleOverlay(${ov.id})"></button><button class="overlay-del" onclick="removeOverlay(${ov.id})">✕</button>`;
+    item.innerHTML = `
+      <div style="width:36px;height:24px;border-radius:4px;background:#222;border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🖼</div>
+      <div class="overlay-info">
+        <div class="overlay-name">${ov.label}</div>
+        <div class="overlay-url-short">${ov.url.length>36?ov.url.slice(0,36)+'…':ov.url}</div>
+        <div class="ov-op-row">
+          <input type="range" min="0" max="100" step="1" value="${ov.opacity}" oninput="setOverlayOpacity(${ov.id},this.value)">
+          <span class="ov-op-val" id="op-val-${ov.id}">${ov.opacity}%</span>
+        </div>
+        <div style="font-size:9px;color:#555;margin-top:2px;">Posición: ${Math.round(ov.x)}%,${Math.round(ov.y)}% · Tamaño: ${Math.round(ov.w)}%×${Math.round(ov.h)}%</div>
+      </div>
+      <button class="overlay-toggle${ov.visible?' on':''}" onclick="toggleOverlay(${ov.id})"></button>
+      <button class="overlay-del" onclick="removeOverlay(${ov.id})">✕</button>`;
     list.appendChild(item);
+  });
+}
+
+// ── DRAG ──
+function makeDraggable(handle, wrapper, ov) {
+  let startX, startY, startLeft, startTop;
+  const container = overlayContainer;
+
+  function onStart(ex, ey) {
+    selectOverlay(ov.id);
+    const rect = container.getBoundingClientRect();
+    const wRect = wrapper.getBoundingClientRect();
+    startX = ex; startY = ey;
+    startLeft = ((wRect.left - rect.left) / rect.width) * 100;
+    startTop = ((wRect.top - rect.top) / rect.height) * 100;
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+  }
+
+  function onMove(ex, ey) {
+    const rect = container.getBoundingClientRect();
+    const dx = ((ex - startX) / rect.width) * 100;
+    const dy = ((ey - startY) / rect.height) * 100;
+    ov.x = Math.max(0, Math.min(100 - ov.w, startLeft + dx));
+    ov.y = Math.max(0, Math.min(100 - ov.h, startTop + dy));
+    wrapper.style.left = ov.x + '%';
+    wrapper.style.top = ov.y + '%';
+    updatePositionLabel(ov);
+  }
+
+  function onEnd() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+    document.removeEventListener('touchmove', onTouchMove);
+    document.removeEventListener('touchend', onEnd);
+    autoSave();
+  }
+
+  function onTouchMove(e) { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); }
+
+  handle.addEventListener('mousedown', e => { e.preventDefault(); onStart(e.clientX, e.clientY); });
+  handle.addEventListener('touchstart', e => { e.preventDefault(); onStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+}
+
+// ── RESIZE ──
+function makeResizable(resizeEl, wrapper, ov) {
+  let startX, startY, startW, startH;
+  const container = overlayContainer;
+
+  function onStart(ex, ey) {
+    startX = ex; startY = ey;
+    startW = ov.w; startH = ov.h;
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+  }
+
+  function onMove(ex, ey) {
+    const rect = container.getBoundingClientRect();
+    const dx = ((ex - startX) / rect.width) * 100;
+    const dy = ((ey - startY) / rect.height) * 100;
+    ov.w = Math.max(10, Math.min(100 - ov.x, startW + dx));
+    ov.h = Math.max(10, Math.min(100 - ov.y, startH + dy));
+    wrapper.style.width = ov.w + '%';
+    wrapper.style.height = ov.h + '%';
+    updatePositionLabel(ov);
+  }
+
+  function onEnd() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+    document.removeEventListener('touchmove', onTouchMove);
+    document.removeEventListener('touchend', onEnd);
+    autoSave();
+  }
+
+  function onTouchMove(e) { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); }
+
+  resizeEl.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); onStart(e.clientX, e.clientY); });
+  resizeEl.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); onStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+}
+
+function updatePositionLabel(ov) {
+  const el = document.querySelector(`#overlay-list .overlay-item [style*="Posición"]`);
+  // Update all position labels in list
+  overlays.forEach(o => {
+    const label = document.querySelector(`[data-ov-pos="${o.id}"]`);
+    if (label) label.textContent = `Posición: ${Math.round(o.x)}%,${Math.round(o.y)}% · Tamaño: ${Math.round(o.w)}%×${Math.round(o.h)}%`;
   });
 }
 
@@ -866,7 +1119,7 @@ function getSettings() {
     res: document.querySelector('.res-btn.active')?.textContent || '720p',
     wb: document.querySelector('.wb-btn.active')?.textContent || 'Auto',
     netProfile: currentNetProfile,
-    overlays: overlays.map(o => ({ url: o.url, label: o.label, visible: o.visible, opacity: o.opacity })),
+    overlays: overlays.map(o => ({ url: o.url, label: o.label, visible: o.visible, opacity: o.opacity, x: o.x||5, y: o.y||5, w: o.w||50, h: o.h||30 })),
     savedAt: new Date().toISOString()
   };
 }
@@ -885,7 +1138,7 @@ function applySettings(s) {
   if (s.res) { document.querySelectorAll('.res-btn').forEach(b => b.classList.toggle('active', b.textContent === s.res)); document.getElementById('res-badge').textContent = s.res; }
   if (s.wb) { document.querySelectorAll('.wb-btn').forEach(b => b.classList.toggle('active', b.textContent === s.wb)); }
   if (s.netProfile && NET_PROFILES[s.netProfile]) { currentNetProfile = s.netProfile; currentChunkMs = 500; }
-  if (s.overlays && s.overlays.length) { overlays = s.overlays.map(o => ({ ...o, id: ++ovId })); renderOverlays(); }
+  if (s.overlays && s.overlays.length) { overlays = s.overlays.map(o => ({ ...o, id: ++ovId, x: o.x||5, y: o.y||5, w: o.w||50, h: o.h||30 })); renderOverlays(); }
 }
 
 function autoSave() {
