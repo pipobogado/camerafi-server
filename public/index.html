@@ -21,26 +21,24 @@ body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, sans-ser
 #video { width: 100%; height: 100%; object-fit: cover; display: block; }
 #overlay-container { position: absolute; inset: 0; pointer-events: all; z-index: 5; }
 
-/* Draggable overlay wrapper */
-.ov-wrapper { position: absolute; pointer-events: all; box-sizing: border-box; }
-.ov-wrapper iframe { width: 100%; height: 100%; border: none; background: transparent; display: block; pointer-events: none; }
-.ov-wrapper.selected { outline: 2px solid rgba(107,70,193,0.8); outline-offset: -1px; }
-.ov-wrapper.selected iframe { pointer-events: none; }
+/* Overlay wrapper */
+.ov-wrapper { position: absolute; box-sizing: border-box; pointer-events: all; touch-action: none; }
+.ov-wrapper iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; background: transparent; display: block; pointer-events: none; }
 
-/* Drag handle bar */
-.ov-handle { position: absolute; top: 0; left: 0; right: 18px; height: 18px; background: rgba(107,70,193,0.75); cursor: grab; display: none; align-items: center; padding: 0 5px; gap: 4px; z-index: 10; border-radius: 0 0 0 0; }
-.ov-wrapper.selected .ov-handle { display: flex; }
-.ov-handle-dots { font-size: 10px; color: rgba(255,255,255,0.8); letter-spacing: 1px; flex: 1; }
-.ov-handle-close { width: 14px; height: 14px; border-radius: 3px; border: none; background: rgba(229,62,62,0.8); color: #fff; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+/* Edit mode ring + label */
+.ov-wrapper.edit-mode { outline: 2px solid #a78bfa; outline-offset: -1px; }
+.ov-edit-label { display: none; position: absolute; top: -20px; left: 0; right: 0; height: 20px; background: rgba(107,70,193,0.85); color: #fff; font-size: 10px; font-weight: 600; align-items: center; padding: 0 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 12; border-radius: 4px 4px 0 0; pointer-events: none; }
+.ov-wrapper.edit-mode .ov-edit-label { display: flex; }
 
-/* Resize handle corner */
-.ov-resize { position: absolute; bottom: 0; right: 0; width: 18px; height: 18px; cursor: nwse-resize; display: none; align-items: flex-end; justify-content: flex-end; z-index: 10; }
-.ov-wrapper.selected .ov-resize { display: flex; }
-.ov-resize::after { content: ''; display: block; width: 10px; height: 10px; border-right: 2px solid rgba(107,70,193,0.9); border-bottom: 2px solid rgba(107,70,193,0.9); margin: 2px; }
+/* Resize handle - bottom right corner */
+.ov-resize-handle { display: none; position: absolute; bottom: 0; right: 0; width: 28px; height: 28px; cursor: nwse-resize; z-index: 12; touch-action: none; align-items: flex-end; justify-content: flex-end; }
+.ov-resize-handle::after { content: ''; display: block; width: 14px; height: 14px; border-right: 3px solid #a78bfa; border-bottom: 3px solid #a78bfa; margin: 4px; border-radius: 0 0 3px 0; }
+.ov-wrapper.edit-mode .ov-resize-handle { display: flex; }
 
-/* Tap-to-select hint */
-.ov-tap-hint { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; pointer-events: all; }
-.ov-wrapper.selected .ov-tap-hint { display: none; }
+/* Long-press ripple indicator */
+.ov-press-ring { display: none; position: absolute; inset: 0; border-radius: 4px; border: 2px solid rgba(167,139,250,0); z-index: 11; pointer-events: none; transition: border-color 0.8s ease; }
+.ov-wrapper.pressing .ov-press-ring { display: block; border-color: rgba(167,139,250,0.7); animation: ring-pulse 0.9s ease forwards; }
+@keyframes ring-pulse { 0%{border-color:rgba(167,139,250,0);transform:scale(1)} 50%{border-color:rgba(167,139,250,0.8)} 100%{border-color:rgba(167,139,250,1);transform:scale(1.02)} }
 
 /* LANDSCAPE */
 body.landscape { background: #000; overflow: hidden; }
@@ -422,9 +420,9 @@ const overlayContainer = document.getElementById('overlay-container');
 
 // ── NETWORK PROFILES ──
 const NET_PROFILES = {
-  wifi:   { res:'720p',  resVal:'1280x720',  bitrate:2.5, audioBitrate:'96k',  info:'720p · 2.5 Mbps — Ideal para WiFi 3-8 Mbps' },
-  lte:    { res:'1080p', resVal:'1920x1080', bitrate:4.5, audioBitrate:'128k', info:'1080p · 4.5 Mbps — Requiere LTE con buena señal' },
-  custom: { res:null,    resVal:null,        bitrate:null,audioBitrate:null,   info:'Ajusta resolución y bitrate manualmente' }
+  wifi:   { res:'720p',  resVal:'1280x720',  bitrate:2.5, audioBitrate:'96k',  chunkMs:1000, info:'720p · 2.5 Mbps — Ideal para WiFi 3-8 Mbps' },
+  lte:    { res:'1080p', resVal:'1920x1080', bitrate:4.5, audioBitrate:'128k', chunkMs:1000, info:'1080p · 4.5 Mbps — Requiere LTE con buena señal' },
+  custom: { res:null,    resVal:null,        bitrate:null,audioBitrate:null,   chunkMs:1000, info:'Ajusta resolución y bitrate manualmente' }
 };
 
 function setNetProfile(profile) {
@@ -810,7 +808,17 @@ function stopLive() {
 }
 
 function getSupportedMime() {
-  return ['video/webm;codecs=h264,opus','video/webm;codecs=vp8,opus','video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+  // Prefer H264 — FFmpeg handles it natively without re-decode issues
+  const types = [
+    'video/webm;codecs=h264,opus',
+    'video/webm;codecs=avc1,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=vp9,opus',
+    'video/webm'
+  ];
+  const supported = types.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+  console.log('[MediaRecorder] MIME seleccionado:', supported);
+  return supported;
 }
 
 // ── CONTROLS ──
@@ -889,21 +897,19 @@ function setSrvStatus(type, text) {
 function prefillUrl(url) { document.getElementById('new-overlay-url').value = url; document.getElementById('new-overlay-url').focus(); }
 
 // ── OVERLAY DRAG & RESIZE SYSTEM ──
-let selectedOverlayId = null;
+let editModeId = null;
 
 function addOverlay() {
   const input = document.getElementById('new-overlay-url');
   const url = input.value.trim(); if (!url) return;
   let label = url; try { label = new URL(url).hostname; } catch(e) {}
-  // Default: 50% width, 30% height, top-left corner
-  overlays.push({ id: ++ovId, url, label, visible: true, opacity: 100,
-    x: 5, y: 5, w: 50, h: 30 }); // % of viewfinder
+  overlays.push({ id: ++ovId, url, label, visible: true, opacity: 100, x: 5, y: 5, w: 50, h: 30 });
   input.value = ''; renderOverlays(); autoSave();
 }
 
 function removeOverlay(id) {
   overlays = overlays.filter(o => o.id !== id);
-  if (selectedOverlayId === id) selectedOverlayId = null;
+  if (editModeId === id) editModeId = null;
   renderOverlays(); autoSave();
 }
 
@@ -914,30 +920,26 @@ function toggleOverlay(id) {
 
 function setOverlayOpacity(id, val) {
   const ov = overlays.find(o => o.id === id);
-  if (ov) {
-    ov.opacity = parseInt(val);
-    const wrapper = document.getElementById('ovw-'+id);
-    if (wrapper) wrapper.style.opacity = ov.opacity/100;
-    const el = document.getElementById('op-val-'+id); if (el) el.textContent = ov.opacity+'%';
-  }
+  if (!ov) return;
+  ov.opacity = parseInt(val);
+  const w = document.getElementById('ovw-'+id);
+  if (w) w.style.opacity = ov.opacity/100;
+  const el = document.getElementById('op-val-'+id); if (el) el.textContent = ov.opacity+'%';
 }
 
-function selectOverlay(id) {
-  // Deselect previous
-  if (selectedOverlayId && selectedOverlayId !== id) {
-    const prev = document.getElementById('ovw-'+selectedOverlayId);
-    if (prev) prev.classList.remove('selected');
-  }
-  if (selectedOverlayId === id) {
-    // Tap again = deselect
-    const el = document.getElementById('ovw-'+id);
-    if (el) el.classList.remove('selected');
-    selectedOverlayId = null;
-    return;
-  }
-  selectedOverlayId = id;
-  const el = document.getElementById('ovw-'+id);
-  if (el) el.classList.add('selected');
+function exitEditMode() {
+  if (!editModeId) return;
+  const w = document.getElementById('ovw-'+editModeId);
+  if (w) w.classList.remove('edit-mode');
+  editModeId = null;
+}
+
+function enterEditMode(id) {
+  if (editModeId && editModeId !== id) exitEditMode();
+  editModeId = id;
+  const w = document.getElementById('ovw-'+id);
+  if (w) w.classList.add('edit-mode');
+  if (navigator.vibrate) navigator.vibrate(40);
 }
 
 function renderOverlays() {
@@ -948,64 +950,59 @@ function renderOverlays() {
   hud.textContent = active ? `${active} overlay${active !== 1 ? 's' : ''}` : '';
   hud.style.display = active ? 'inline' : 'none';
 
-  // Render draggable wrappers in viewfinder
   overlayContainer.innerHTML = '';
   overlays.filter(o => o.visible).forEach(ov => {
     const wrapper = document.createElement('div');
     wrapper.id = 'ovw-'+ov.id;
-    wrapper.className = 'ov-wrapper' + (selectedOverlayId === ov.id ? ' selected' : '');
+    wrapper.className = 'ov-wrapper' + (editModeId === ov.id ? ' edit-mode' : '');
     wrapper.style.cssText = `left:${ov.x}%;top:${ov.y}%;width:${ov.w}%;height:${ov.h}%;opacity:${ov.opacity/100};`;
 
-    // Drag handle
-    const handle = document.createElement('div');
-    handle.className = 'ov-handle';
-    handle.innerHTML = `<span class="ov-handle-dots">⠿⠿ ${ov.label}</span><button class="ov-handle-close" onclick="removeOverlay(${ov.id})">✕</button>`;
+    const label = document.createElement('div');
+    label.className = 'ov-edit-label';
+    label.textContent = '✎ ' + ov.label;
 
-    // iframe
+    const ring = document.createElement('div');
+    ring.className = 'ov-press-ring';
+
     const iframe = document.createElement('iframe');
     iframe.src = ov.url;
     iframe.setAttribute('allowtransparency','true');
     iframe.setAttribute('frameborder','0');
-    iframe.style.cssText = 'width:100%;height:100%;border:none;background:transparent;display:block;pointer-events:none;';
+    iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;background:transparent;pointer-events:none;';
 
-    // Resize handle
     const resizeHandle = document.createElement('div');
-    resizeHandle.className = 'ov-resize';
+    resizeHandle.className = 'ov-resize-handle';
 
-    // Tap to select (on the iframe area when not selected)
-    const tapZone = document.createElement('div');
-    tapZone.className = 'ov-tap-hint';
-    tapZone.style.cssText = 'position:absolute;inset:0;pointer-events:all;';
-    tapZone.addEventListener('click', () => selectOverlay(ov.id));
-
-    wrapper.appendChild(handle);
+    wrapper.appendChild(label);
+    wrapper.appendChild(ring);
     wrapper.appendChild(iframe);
     wrapper.appendChild(resizeHandle);
-    wrapper.appendChild(tapZone);
     overlayContainer.appendChild(wrapper);
 
-    // Attach drag to handle
-    makeDraggable(handle, wrapper, ov);
-    // Attach resize to corner
-    makeResizable(resizeHandle, wrapper, ov);
+    attachOverlayInteractions(wrapper, resizeHandle, ov);
   });
 
-  // Render settings list
+  overlayContainer.addEventListener('click', (e) => {
+    if (e.target === overlayContainer) exitEditMode();
+  }, { once: true });
+
   if (!overlays.length) { empty.style.display = 'block'; list.innerHTML = ''; list.appendChild(empty); return; }
   empty.style.display = 'none'; list.innerHTML = '';
   overlays.forEach(ov => {
     const item = document.createElement('div');
     item.className = 'overlay-item' + (ov.visible ? ' active-ov' : '');
     item.innerHTML = `
-      <div style="width:36px;height:24px;border-radius:4px;background:#222;border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🖼</div>
+      <div style="width:32px;height:24px;border-radius:4px;background:#222;border:1px solid #333;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">🖼</div>
       <div class="overlay-info">
         <div class="overlay-name">${ov.label}</div>
-        <div class="overlay-url-short">${ov.url.length>36?ov.url.slice(0,36)+'…':ov.url}</div>
+        <div class="overlay-url-short">${ov.url.length>34?ov.url.slice(0,34)+'\u2026':ov.url}</div>
         <div class="ov-op-row">
           <input type="range" min="0" max="100" step="1" value="${ov.opacity}" oninput="setOverlayOpacity(${ov.id},this.value)">
           <span class="ov-op-val" id="op-val-${ov.id}">${ov.opacity}%</span>
         </div>
-        <div style="font-size:9px;color:#555;margin-top:2px;">Posición: ${Math.round(ov.x)}%,${Math.round(ov.y)}% · Tamaño: ${Math.round(ov.w)}%×${Math.round(ov.h)}%</div>
+        <div style="font-size:9px;color:#555;margin-top:2px;" id="ov-info-${ov.id}">
+          Pos: ${Math.round(ov.x)}%,${Math.round(ov.y)}% · ${Math.round(ov.w)}%×${Math.round(ov.h)}% · <em>Mantén 1s para mover</em>
+        </div>
       </div>
       <button class="overlay-toggle${ov.visible?' on':''}" onclick="toggleOverlay(${ov.id})"></button>
       <button class="overlay-del" onclick="removeOverlay(${ov.id})">✕</button>`;
@@ -1013,95 +1010,134 @@ function renderOverlays() {
   });
 }
 
-// ── DRAG ──
-function makeDraggable(handle, wrapper, ov) {
-  let startX, startY, startLeft, startTop;
+function attachOverlayInteractions(wrapper, resizeHandle, ov) {
   const container = overlayContainer;
+  let longPressTimer = null;
+  let isDragging = false, isResizing = false;
+  let dragSX, dragSY, dragSOvX, dragSOvY;
+  let resSX, resSY, resSW, resSH;
+  let pinchStartDist = 0, pinchStartW, pinchStartH;
 
-  function onStart(ex, ey) {
-    selectOverlay(ov.id);
+  function getPinchDist(t) { return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
+
+  function startLongPress(ex, ey) {
+    wrapper.classList.add('pressing');
+    longPressTimer = setTimeout(() => {
+      wrapper.classList.remove('pressing');
+      enterEditMode(ov.id);
+      // Immediately start drag after long press
+      const rect = container.getBoundingClientRect();
+      dragSX = ex; dragSY = ey; dragSOvX = ov.x; dragSOvY = ov.y;
+      isDragging = true;
+    }, 900);
+  }
+
+  function cancelLongPress() {
+    clearTimeout(longPressTimer);
+    wrapper.classList.remove('pressing');
+  }
+
+  function doDragMove(ex, ey) {
+    if (!isDragging) return;
     const rect = container.getBoundingClientRect();
-    const wRect = wrapper.getBoundingClientRect();
-    startX = ex; startY = ey;
-    startLeft = ((wRect.left - rect.left) / rect.width) * 100;
-    startTop = ((wRect.top - rect.top) / rect.height) * 100;
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onEnd);
-    document.addEventListener('touchmove', onTouchMove, { passive: false });
-    document.addEventListener('touchend', onEnd);
+    ov.x = Math.max(0, Math.min(100-ov.w, dragSOvX + ((ex-dragSX)/rect.width)*100));
+    ov.y = Math.max(0, Math.min(100-ov.h, dragSOvY + ((ey-dragSY)/rect.height)*100));
+    wrapper.style.left = ov.x+'%'; wrapper.style.top = ov.y+'%';
+    updateOvInfo(ov);
   }
 
-  function onMove(ex, ey) {
+  function doResizeMove(ex, ey) {
+    if (!isResizing) return;
     const rect = container.getBoundingClientRect();
-    const dx = ((ex - startX) / rect.width) * 100;
-    const dy = ((ey - startY) / rect.height) * 100;
-    ov.x = Math.max(0, Math.min(100 - ov.w, startLeft + dx));
-    ov.y = Math.max(0, Math.min(100 - ov.h, startTop + dy));
-    wrapper.style.left = ov.x + '%';
-    wrapper.style.top = ov.y + '%';
-    updatePositionLabel(ov);
+    ov.w = Math.max(10, Math.min(100-ov.x, resSW + ((ex-resSX)/rect.width)*100));
+    ov.h = Math.max(8,  Math.min(100-ov.y, resSH + ((ey-resSY)/rect.height)*100));
+    wrapper.style.width = ov.w+'%'; wrapper.style.height = ov.h+'%';
+    updateOvInfo(ov);
   }
 
-  function onEnd() {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onEnd);
-    document.removeEventListener('touchmove', onTouchMove);
-    document.removeEventListener('touchend', onEnd);
-    autoSave();
-  }
+  // Touch on wrapper
+  wrapper.addEventListener('touchstart', (e) => {
+    const t = e.touches;
+    if (t.length === 1) {
+      if (editModeId === ov.id) {
+        e.preventDefault();
+        dragSX = t[0].clientX; dragSY = t[0].clientY; dragSOvX = ov.x; dragSOvY = ov.y;
+        isDragging = true;
+      } else {
+        startLongPress(t[0].clientX, t[0].clientY);
+      }
+    } else if (t.length === 2 && editModeId === ov.id) {
+      cancelLongPress(); isDragging = false;
+      e.preventDefault();
+      pinchStartDist = getPinchDist(t);
+      pinchStartW = ov.w; pinchStartH = ov.h;
+    }
+  }, { passive: false });
 
-  function onTouchMove(e) { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); }
+  wrapper.addEventListener('touchmove', (e) => {
+    const t = e.touches;
+    cancelLongPress();
+    if (t.length === 1 && isDragging) {
+      e.preventDefault(); doDragMove(t[0].clientX, t[0].clientY);
+    } else if (t.length === 2 && editModeId === ov.id) {
+      e.preventDefault();
+      const dist = getPinchDist(t);
+      const scale = dist / pinchStartDist;
+      const rect = container.getBoundingClientRect();
+      ov.w = Math.max(10, Math.min(100-ov.x, pinchStartW*scale));
+      ov.h = Math.max(8,  Math.min(100-ov.y, pinchStartH*scale));
+      wrapper.style.width = ov.w+'%'; wrapper.style.height = ov.h+'%';
+      updateOvInfo(ov);
+    }
+  }, { passive: false });
 
-  handle.addEventListener('mousedown', e => { e.preventDefault(); onStart(e.clientX, e.clientY); });
-  handle.addEventListener('touchstart', e => { e.preventDefault(); onStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-}
-
-// ── RESIZE ──
-function makeResizable(resizeEl, wrapper, ov) {
-  let startX, startY, startW, startH;
-  const container = overlayContainer;
-
-  function onStart(ex, ey) {
-    startX = ex; startY = ey;
-    startW = ov.w; startH = ov.h;
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onEnd);
-    document.addEventListener('touchmove', onTouchMove, { passive: false });
-    document.addEventListener('touchend', onEnd);
-  }
-
-  function onMove(ex, ey) {
-    const rect = container.getBoundingClientRect();
-    const dx = ((ex - startX) / rect.width) * 100;
-    const dy = ((ey - startY) / rect.height) * 100;
-    ov.w = Math.max(10, Math.min(100 - ov.x, startW + dx));
-    ov.h = Math.max(10, Math.min(100 - ov.y, startH + dy));
-    wrapper.style.width = ov.w + '%';
-    wrapper.style.height = ov.h + '%';
-    updatePositionLabel(ov);
-  }
-
-  function onEnd() {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onEnd);
-    document.removeEventListener('touchmove', onTouchMove);
-    document.removeEventListener('touchend', onEnd);
-    autoSave();
-  }
-
-  function onTouchMove(e) { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); }
-
-  resizeEl.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); onStart(e.clientX, e.clientY); });
-  resizeEl.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); onStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-}
-
-function updatePositionLabel(ov) {
-  const el = document.querySelector(`#overlay-list .overlay-item [style*="Posición"]`);
-  // Update all position labels in list
-  overlays.forEach(o => {
-    const label = document.querySelector(`[data-ov-pos="${o.id}"]`);
-    if (label) label.textContent = `Posición: ${Math.round(o.x)}%,${Math.round(o.y)}% · Tamaño: ${Math.round(o.w)}%×${Math.round(o.h)}%`;
+  wrapper.addEventListener('touchend', (e) => {
+    cancelLongPress();
+    if (isDragging) { isDragging = false; autoSave(); }
+    if (e.touches.length < 2 && pinchStartDist) { pinchStartDist = 0; autoSave(); }
   });
+
+  // Mouse on wrapper (desktop)
+  wrapper.addEventListener('mousedown', (e) => {
+    if (resizeHandle.contains(e.target)) return;
+    e.preventDefault();
+    if (editModeId === ov.id) {
+      dragSX = e.clientX; dragSY = e.clientY; dragSOvX = ov.x; dragSOvY = ov.y;
+      isDragging = true;
+    } else {
+      startLongPress(e.clientX, e.clientY);
+    }
+  });
+
+  document.addEventListener('mousemove', (e) => { doDragMove(e.clientX, e.clientY); doResizeMove(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', () => {
+    cancelLongPress();
+    if (isDragging) { isDragging = false; autoSave(); }
+    if (isResizing) { isResizing = false; autoSave(); }
+  });
+
+  // Resize handle
+  resizeHandle.addEventListener('touchstart', (e) => {
+    if (editModeId !== ov.id) return;
+    e.preventDefault(); e.stopPropagation();
+    resSX = e.touches[0].clientX; resSY = e.touches[0].clientY; resSW = ov.w; resSH = ov.h;
+    isResizing = true;
+  }, { passive: false });
+  resizeHandle.addEventListener('touchmove', (e) => {
+    e.preventDefault(); doResizeMove(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+  resizeHandle.addEventListener('touchend', () => { if (isResizing) { isResizing = false; autoSave(); } });
+  resizeHandle.addEventListener('mousedown', (e) => {
+    if (editModeId !== ov.id) return;
+    e.preventDefault(); e.stopPropagation();
+    resSX = e.clientX; resSY = e.clientY; resSW = ov.w; resSH = ov.h;
+    isResizing = true;
+  });
+}
+
+function updateOvInfo(ov) {
+  const el = document.getElementById('ov-info-'+ov.id);
+  if (el) el.textContent = `Pos: ${Math.round(ov.x)}%,${Math.round(ov.y)}% · ${Math.round(ov.w)}%×${Math.round(ov.h)}%`;
 }
 
 // ── SETTINGS ──

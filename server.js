@@ -179,23 +179,26 @@ wss.on('connection', (ws, req) => {
           console.log(`[STREAM] Iniciando → ${destination} | ${resolution} | ${bitrate} | audio:${audioBitrate}`);
 
           ffmpegProcess = spawn('ffmpeg', [
-            '-fflags', '+nobuffer+genpts',
-            '-analyzeduration', '0',
-            '-probesize', '32',
+            // Input: WebM stream from browser (VP8/VP9 or H264)
+            '-fflags', '+nobuffer',
+            '-flags', 'low_delay',
             '-i', 'pipe:0',
+            // Re-encode video to H.264 for RTMP compatibility
             '-c:v', 'libx264',
-            '-preset', 'superfast',
+            '-preset', 'veryfast',
             '-tune', 'zerolatency',
             '-b:v', bitrate,
             '-maxrate', bitrate,
             '-bufsize', String(bitrateNum * 4) + 'k',
             '-vf', `scale=${resolution}`,
-            '-g', '48',
-            '-keyint_min', '48',
+            '-g', '60',
+            '-keyint_min', '30',
             '-sc_threshold', '0',
+            // Audio
             '-c:a', 'aac',
             '-b:a', audioBitrate,
             '-ar', '44100',
+            // Output
             '-f', 'flv', destination
           ]);
 
