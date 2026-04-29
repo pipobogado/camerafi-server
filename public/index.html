@@ -702,6 +702,77 @@ function disconnectServer() {
   serverConnected = false;
 }
 
+// ── CANVAS COMPOSITOR ──
+let compositorCanvas = null;
+let compositorCtx = null;
+let compositorStream = null;
+let compositorRAF = null;
+
+function startCanvasCompositor(width, height, fps) {
+  compositorCanvas = document.createElement('canvas');
+  compositorCanvas.width = width;
+  compositorCanvas.height = height;
+  compositorCtx = compositorCanvas.getContext('2d');
+
+  // Capture canvas as stream
+  compositorStream = compositorCanvas.captureStream(fps);
+
+  // Add audio tracks from camera
+  if (camStream) {
+    camStream.getAudioTracks().forEach(t => compositorStream.addTrack(t));
+  }
+
+  // Draw loop - composites camera + overlays every frame
+  function drawFrame() {
+    if (!compositorCtx) return;
+    const ctx = compositorCtx;
+    const w = compositorCanvas.width;
+    const h = compositorCanvas.height;
+
+    // 1. Draw camera video
+    if (video && video.readyState >= 2) {
+      ctx.drawImage(video, 0, 0, w, h);
+    } else {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, w, h);
+    }
+
+    // 2. Draw visible overlays on top
+    overlays.filter(o => o.visible).forEach(ov => {
+      const wrapper = document.getElementById('ovw-' + ov.id);
+      const iframe = wrapper?.querySelector('iframe');
+      if (!iframe) return;
+      try {
+        // Calculate pixel position from % values
+        const vfRect = document.getElementById('viewfinder').getBoundingClientRect();
+        const x = Math.round((ov.x / 100) * w);
+        const y = Math.round((ov.y / 100) * h);
+        const ow = Math.round((ov.w / 100) * w);
+        const oh = Math.round((ov.h / 100) * h);
+        ctx.globalAlpha = ov.opacity / 100;
+        // Draw iframe content via html2canvas-like approach
+        // Note: cross-origin iframes can't be drawn directly
+        // Draw a placeholder with label instead
+        ctx.fillStyle = `rgba(107,70,193,${ov.opacity/200})`;
+        ctx.fillRect(x, y, ow, oh);
+        ctx.globalAlpha = 1;
+      } catch(e) {}
+    });
+
+    compositorRAF = requestAnimationFrame(drawFrame);
+  }
+
+  drawFrame();
+  return compositorStream;
+}
+
+function stopCanvasCompositor() {
+  if (compositorRAF) { cancelAnimationFrame(compositorRAF); compositorRAF = null; }
+  if (compositorStream) { compositorStream.getTracks().forEach(t => t.stop()); compositorStream = null; }
+  compositorCanvas = null;
+  compositorCtx = null;
+}
+
 // ── LIVE STREAM ──
 function toggleLive() {
   if (!camStream) {
@@ -731,14 +802,15 @@ function goLive() {
   }
 
   try {
-    const bitrateVal = parseFloat(document.getElementById('vid-bitrate').value) || 2.5;
-    const resText = document.querySelector('.res-btn.active')?.textContent || '720p';
+    const bitrateVal = parseFloat(document.getElementById('vid-bitrate').value) || 4.5;
+    const resText = document.querySelector('.res-btn.active')?.textContent || '1080p';
     const resolution = resText === '2K' ? '2560x1440' : resText === '720p' ? '1280x720' : '1920x1080';
+    const [resW, resH] = resolution.split('x').map(Number);
     const profile = NET_PROFILES[currentNetProfile] || NET_PROFILES.lte;
-    const audioBitrate = profile.audioBitrate || '96k';
-    const chunkMs = (typeof currentChunkMs === 'number' && currentChunkMs > 0) ? currentChunkMs : 500;
+    const audioBitrate = profile.audioBitrate || '128k';
+    const chunkMs = 2000; // 2s chunks for 1080p stability
 
-    console.log('[LIVE] Iniciando:', { resolution, bitrate: bitrateVal + ' Mbps', audioBitrate, chunkMs });
+    console.log('[LIVE] Iniciando canvas compositor:', { resolution, bitrate: bitrateVal + ' Mbps', chunkMs });
 
     ws.send(JSON.stringify({
       type: 'config',
@@ -749,12 +821,15 @@ function goLive() {
       audioBitrate
     }));
 
+    // Start canvas compositor at 24fps for 1080p stability
+    const streamToRecord = startCanvasCompositor(resW, resH, 24);
     const mimeType = getSupportedMime();
-    console.log('[LIVE] MIME:', mimeType);
+    console.log('[LIVE] MIME:', mimeType, '| Stream tracks:', streamToRecord.getTracks().length);
 
-    mediaRecorder = new MediaRecorder(camStream, {
+    mediaRecorder = new MediaRecorder(streamToRecord, {
       mimeType,
-      videoBitsPerSecond: bitrateVal * 1000000
+      videoBitsPerSecond: bitrateVal * 1000000,
+      audioBitsPerSecond: 128000
     });
 
     mediaRecorder.ondataavailable = (e) => {
@@ -770,7 +845,7 @@ function goLive() {
     };
 
     mediaRecorder.start(chunkMs);
-    console.log('[LIVE] MediaRecorder iniciado, estado:', mediaRecorder.state);
+    console.log('[LIVE] Canvas+MediaRecorder iniciado:', mediaRecorder.state);
 
     isLive = true; liveSecs = 0;
     document.getElementById('live-badge').classList.add('active');
@@ -792,6 +867,7 @@ function goLive() {
     console.error('[LIVE] Error al iniciar:', err);
     setStatus('err', '⚠ Error: ' + err.message);
     showSaveMsg('⚠ ' + err.message, true);
+    stopCanvasCompositor();
     isLive = false;
   }
 }
@@ -799,6 +875,7 @@ function goLive() {
 function stopLive() {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   if (ws && serverConnected) ws.send(JSON.stringify({ type: 'stop' }));
+  stopCanvasCompositor();
   isLive = false; clearInterval(timerInt);
   document.getElementById('live-badge').classList.remove('active');
   ['go-live-btn','ls-live-btn'].forEach(id => { const b = document.getElementById(id); b.textContent = 'IR EN VIVO'; b.classList.remove('live'); });

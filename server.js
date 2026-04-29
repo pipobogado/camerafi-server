@@ -179,27 +179,27 @@ wss.on('connection', (ws, req) => {
           console.log(`[STREAM] Iniciando → ${destination} | ${resolution} | ${bitrate} | audio:${audioBitrate}`);
 
           ffmpegProcess = spawn('ffmpeg', [
-            // Input: WebM stream from browser (VP8/VP9 or H264)
-            '-fflags', '+nobuffer',
-            '-flags', 'low_delay',
+            '-fflags', '+nobuffer+discardcorrupt',
+            '-err_detect', 'ignore_err',
             '-i', 'pipe:0',
-            // Re-encode video to H.264 for RTMP compatibility
             '-c:v', 'libx264',
-            '-preset', 'veryfast',
+            '-preset', 'ultrafast',          // lowest CPU usage
             '-tune', 'zerolatency',
             '-b:v', bitrate,
-            '-maxrate', bitrate,
-            '-bufsize', String(bitrateNum * 4) + 'k',
-            '-vf', `scale=${resolution}`,
-            '-g', '60',
-            '-keyint_min', '30',
+            '-maxrate', String(bitrateNum * 1.5) + 'k',
+            '-bufsize', String(bitrateNum * 8) + 'k',
+            '-vf', `scale=${resolution},fps=24`,  // 24fps = 20% less CPU than 30fps
+            '-g', '48',                       // keyframe every 2s at 24fps
+            '-keyint_min', '48',
+            '-x264opts', 'no-scenecut:nal-hrd=cbr',
             '-sc_threshold', '0',
-            // Audio
             '-c:a', 'aac',
             '-b:a', audioBitrate,
             '-ar', '44100',
-            // Output
-            '-f', 'flv', destination
+            '-ac', '2',
+            '-f', 'flv',
+            '-flvflags', 'no_duration_filesize',
+            destination
           ]);
 
           ffmpegProcess.stderr.on('data', d => {
